@@ -1,0 +1,280 @@
+name: Refinery-RS Build & Release
+
+on:
+  workflow_call:
+    inputs:
+      package-name:
+        description: "The name of the package to build (optional, default to repo name)"
+        type: string
+        required: false
+      binary-name:
+        description: "The name of the binary to export (optional)"
+        type: string
+        required: false
+      include-linux:
+        description: "Include Linux targets"
+        type: boolean
+        default: true
+      include-windows:
+        description: "Include Windows targets"
+        type: boolean
+        default: true
+      include-macos:
+        description: "Include macOS targets"
+        type: boolean
+        default: true
+      include-android:
+        description: "Include Android targets"
+        type: boolean
+        default: true
+      include-32bit:
+        description: "Include 32-bit architectures"
+        type: boolean
+        default: true
+      include-64bit:
+        description: "Include 64-bit architectures"
+        type: boolean
+        default: true
+      include-arm:
+        description: "Include ARM architectures (v7)"
+        type: boolean
+        default: true
+      include-aarch64:
+        description: "Include AArch64 (ARM64) architectures"
+        type: boolean
+        default: true
+      export-libs:
+        description: "Export library files (.so, .dll, .dylib, .a)"
+        type: boolean
+        default: true
+      export-bins:
+        description: "Export binary files"
+        type: boolean
+        default: true
+      publish-crates:
+        description: "Publish to Crates.io"
+        type: boolean
+        default: false
+      publish-gh-packages:
+        description: "Publish to GitHub Packages (Docker/Registry)"
+        type: boolean
+        default: false
+      features:
+        description: "Rust features to enable"
+        type: string
+        required: false
+        default: ""
+
+    secrets:
+      CRATES_IO_TOKEN:
+        required: false
+      GH_TOKEN:
+        required: false
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  generate-matrix:
+    name: Generate Matrix
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - id: set-matrix
+        shell: bash
+        run: |
+          TARGETS=()
+          
+          # Linux 64-bit
+          if [[ "${{ inputs.include-linux }}" == "true" && "${{ inputs.include-64bit }}" == "true" ]]; then
+            TARGETS+=('{"target": "x86_64-unknown-linux-gnu", "os": "ubuntu-latest", "use-cross": true}')
+            TARGETS+=('{"target": "x86_64-unknown-linux-musl", "os": "ubuntu-latest", "use-cross": true}')
+          fi
+          
+          # Linux 32-bit
+          if [[ "${{ inputs.include-linux }}" == "true" && "${{ inputs.include-32bit }}" == "true" ]]; then
+            TARGETS+=('{"target": "i686-unknown-linux-gnu", "os": "ubuntu-latest", "use-cross": true}')
+            TARGETS+=('{"target": "i686-unknown-linux-musl", "os": "ubuntu-latest", "use-cross": true}')
+          fi
+          
+          # Linux ARM/AArch64
+          if [[ "${{ inputs.include-linux }}" == "true" ]]; then
+            if [[ "${{ inputs.include-aarch64 }}" == "true" ]]; then
+              TARGETS+=('{"target": "aarch64-unknown-linux-gnu", "os": "ubuntu-latest", "use-cross": true}')
+              TARGETS+=('{"target": "aarch64-unknown-linux-musl", "os": "ubuntu-latest", "use-cross": true}')
+            fi
+            if [[ "${{ inputs.include-arm }}" == "true" ]]; then
+              TARGETS+=('{"target": "armv7-unknown-linux-gnueabihf", "os": "ubuntu-latest", "use-cross": true}')
+              TARGETS+=('{"target": "armv7-unknown-linux-musleabihf", "os": "ubuntu-latest", "use-cross": true}')
+            fi
+          fi
+          
+          # Windows
+          if [[ "${{ inputs.include-windows }}" == "true" ]]; then
+            if [[ "${{ inputs.include-64bit }}" == "true" ]]; then
+              TARGETS+=('{"target": "x86_64-pc-windows-msvc", "os": "windows-latest", "use-cross": false}')
+            fi
+            if [[ "${{ inputs.include-32bit }}" == "true" ]]; then
+              TARGETS+=('{"target": "i686-pc-windows-msvc", "os": "windows-latest", "use-cross": false}')
+            fi
+            if [[ "${{ inputs.include-aarch64 }}" == "true" ]]; then
+              TARGETS+=('{"target": "aarch64-pc-windows-msvc", "os": "windows-latest", "use-cross": false}')
+            fi
+          fi
+          
+          # macOS
+          if [[ "${{ inputs.include-macos }}" == "true" ]]; then
+            if [[ "${{ inputs.include-64bit }}" == "true" ]]; then
+              TARGETS+=('{"target": "x86_64-apple-darwin", "os": "macos-latest", "use-cross": false}')
+            fi
+            if [[ "${{ inputs.include-aarch64 }}" == "true" ]]; then
+              TARGETS+=('{"target": "aarch64-apple-darwin", "os": "macos-latest", "use-cross": false}')
+            fi
+          fi
+          
+          # Android
+          if [[ "${{ inputs.include-android }}" == "true" ]]; then
+            if [[ "${{ inputs.include-aarch64 }}" == "true" ]]; then
+              TARGETS+=('{"target": "aarch64-linux-android", "os": "ubuntu-latest", "use-cross": true}')
+            fi
+            if [[ "${{ inputs.include-arm }}" == "true" ]]; then
+              TARGETS+=('{"target": "armv7-linux-androideabi", "os": "ubuntu-latest", "use-cross": true}')
+            fi
+            if [[ "${{ inputs.include-32bit }}" == "true" ]]; then
+              TARGETS+=('{"target": "i686-linux-android", "os": "ubuntu-latest", "use-cross": true}')
+            fi
+            if [[ "${{ inputs.include-64bit }}" == "true" ]]; then
+              TARGETS+=('{"target": "x86_64-linux-android", "os": "ubuntu-latest", "use-cross": true}')
+            fi
+          fi
+          
+          # Join array with commas and wrap in brackets
+          JSON_ARRAY=$(IFS=,; echo "[${TARGETS[*]}]")
+          echo "matrix=$JSON_ARRAY" >> $GITHUB_OUTPUT
+
+  build:
+    name: Build (${{ matrix.target }})
+    needs: generate-matrix
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install Cross
+        if: matrix.use-cross
+        uses: taiki-e/install-action@cross
+
+      - name: Build
+        run: |
+          FLAGS=""
+          if [ -n "${{ inputs.features }}" ]; then
+            FLAGS="--features ${{ inputs.features }}"
+          fi
+          
+          if [ "${{ matrix.use-cross }}" = "true" ]; then
+            cross build --release --target ${{ matrix.target }} $FLAGS
+          else
+            cargo build --release --target ${{ matrix.target }} $FLAGS
+          fi
+        shell: bash
+
+      - name: Package Artifacts
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          PKG_NAME="${{ inputs.package-name || github.event.repository.name }}"
+          BIN_NAME="${{ inputs.binary-name || github.event.repository.name }}"
+          
+          # Handle Windows extensions
+          BIN_EXT=""
+          if [[ "${{ matrix.target }}" == *"windows"* ]]; then
+            BIN_EXT=".exe"
+          fi
+          
+          # Copy Binaries
+          if [[ "${{ inputs.export-bins }}" == "true" ]]; then
+            SRC_BIN="target/${{ matrix.target }}/release/$BIN_NAME$BIN_EXT"
+            if [ -f "$SRC_BIN" ]; then
+              cp "$SRC_BIN" "artifacts/${BIN_NAME}_${{ matrix.target }}$BIN_EXT"
+            fi
+          fi
+          
+          # Copy Libraries
+          if [[ "${{ inputs.export-libs }}" == "true" ]]; then
+            # .so (Linux/Android)
+            if [[ -f "target/${{ matrix.target }}/release/lib${PKG_NAME//-/_}.so" ]]; then
+              cp "target/${{ matrix.target }}/release/lib${PKG_NAME//-/_}.so" "artifacts/lib${PKG_NAME//-/_}_${{ matrix.target }}.so"
+            fi
+            # .dll (Windows)
+            if [[ -f "target/${{ matrix.target }}/release/${PKG_NAME//-/_}.dll" ]]; then
+              cp "target/${{ matrix.target }}/release/${PKG_NAME//-/_}.dll" "artifacts/${PKG_NAME//-/_}_${{ matrix.target }}.dll"
+            fi
+            # .dylib / .a (macOS)
+            if [[ -f "target/${{ matrix.target }}/release/lib${PKG_NAME//-/_}.dylib" ]]; then
+              cp "target/${{ matrix.target }}/release/lib${PKG_NAME//-/_}.dylib" "artifacts/lib${PKG_NAME//-/_}_${{ matrix.target }}.dylib"
+            fi
+            if [[ -f "target/${{ matrix.target }}/release/lib${PKG_NAME//-/_}.a" ]]; then
+              cp "target/${{ matrix.target }}/release/lib${PKG_NAME//-/_}.a" "artifacts/lib${PKG_NAME//-/_}_${{ matrix.target }}.a"
+            fi
+          fi
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifacts-${{ matrix.target }}
+          path: artifacts/*
+
+  release:
+    name: Create Release & Publish
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: all-artifacts
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: all-artifacts/*
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Publish to Crates.io
+        if: inputs.publish-crates
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
+        run: cargo publish
+
+      - name: Publish to GHCR (Docker)
+        if: inputs.publish-gh-packages
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Build and push Docker image
+        if: inputs.publish-gh-packages
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}:${{ github.ref_name }}

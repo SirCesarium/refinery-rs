@@ -1,0 +1,104 @@
+name: 'Refinery-RS Build'
+description: 'Surgical Rust build action for multiple targets with library and binary export.'
+author: 'SirCesarium'
+inputs:
+  target:
+    description: 'The Rust target to build for'
+    required: true
+  package-name:
+    description: 'The name of the package to build'
+    required: false
+  binary-name:
+    description: 'The name of the binary to export'
+    required: false
+  export-libs:
+    description: 'Export library files (.so, .dll, .dylib, .a)'
+    required: false
+    default: 'true'
+  export-bins:
+    description: 'Export binary files'
+    required: false
+    default: 'true'
+  features:
+    description: 'Rust features to enable'
+    required: false
+    default: ''
+  use-cross:
+    description: 'Use cross-rs for building'
+    required: false
+    default: 'false'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: ${{ inputs.target }}
+
+    - name: Rust Cache
+      uses: Swatinem/rust-cache@v2
+      with:
+        key: ${{ inputs.target }}
+
+    - name: Install Cross
+      if: inputs.use-cross == 'true'
+      uses: taiki-e/install-action@cross
+      shell: bash
+
+    - name: Build
+      run: |
+        FLAGS=""
+        if [ -n "${{ inputs.features }}" ]; then
+          FLAGS="--features ${{ inputs.features }}"
+        fi
+        
+        if [ "${{ inputs.use-cross }}" = "true" ]; then
+          cross build --release --target ${{ inputs.target }} $FLAGS
+        else
+          cargo build --release --target ${{ inputs.target }} $FLAGS
+        fi
+      shell: bash
+
+    - name: Package Artifacts
+      shell: bash
+      run: |
+        mkdir -p artifacts
+        PKG_NAME="${{ inputs.package-name || github.event.repository.name }}"
+        BIN_NAME="${{ inputs.binary-name || github.event.repository.name }}"
+        
+        # Handle Windows extensions
+        BIN_EXT=""
+        if [[ "${{ inputs.target }}" == *"windows"* ]]; then
+          BIN_EXT=".exe"
+        fi
+        
+        # Copy Binaries
+        if [[ "${{ inputs.export-bins }}" == "true" ]]; then
+          SRC_BIN="target/${{ inputs.target }}/release/$BIN_NAME$BIN_EXT"
+          if [ -f "$SRC_BIN" ]; then
+            cp "$SRC_BIN" "artifacts/${BIN_NAME}_${{ inputs.target }}$BIN_EXT"
+          fi
+        fi
+        
+        # Copy Libraries
+        if [[ "${{ inputs.export-libs }}" == "true" ]]; then
+          # .so (Linux/Android)
+          if [[ -f "target/${{ inputs.target }}/release/lib${PKG_NAME//-/_}.so" ]]; then
+            cp "target/${{ inputs.target }}/release/lib${PKG_NAME//-/_}.so" "artifacts/lib${PKG_NAME//-/_}_${{ inputs.target }}.so"
+          fi
+          # .dll (Windows)
+          if [[ -f "target/${{ inputs.target }}/release/${PKG_NAME//-/_}.dll" ]]; then
+            cp "target/${{ inputs.target }}/release/${PKG_NAME//-/_}.dll" "artifacts/${PKG_NAME//-/_}_${{ inputs.target }}.dll"
+          fi
+          # .dylib / .a (macOS)
+          if [[ -f "target/${{ inputs.target }}/release/lib${PKG_NAME//-/_}.dylib" ]]; then
+            cp "target/${{ inputs.target }}/release/lib${PKG_NAME//-/_}.dylib" "artifacts/lib${PKG_NAME//-/_}_${{ inputs.target }}.dylib"
+          fi
+          if [[ -f "target/${{ inputs.target }}/release/lib${PKG_NAME//-/_}.a" ]]; then
+            cp "target/${{ inputs.target }}/release/lib${PKG_NAME//-/_}.a" "artifacts/lib${PKG_NAME//-/_}_${{ inputs.target }}.a"
+          fi
+        fi
+branding:
+  icon: 'package'
+  color: 'orange'
