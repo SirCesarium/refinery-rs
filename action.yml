@@ -44,7 +44,6 @@ runs:
     - name: Install Cross
       if: inputs.use-cross == 'true'
       uses: taiki-e/install-action@cross
-      shell: bash
 
     - name: Build
       run: |
