@@ -1,35 +1,35 @@
-name: 'Refinery-RS Build'
-description: 'Surgical Rust build action for multiple targets with library and binary export.'
-author: 'SirCesarium'
+name: "Refinery-RS Build"
+description: "Surgical Rust build action for multiple targets with library and binary export."
+author: "SirCesarium"
 inputs:
   target:
-    description: 'The Rust target to build for'
+    description: "The Rust target to build for"
     required: true
   package-name:
-    description: 'The name of the package to build'
+    description: "The name of the package to build"
     required: false
   binary-name:
-    description: 'The name of the binary to export'
+    description: "The name of the binary to export"
     required: false
   export-libs:
-    description: 'Export library files (.so, .dll, .dylib, .a)'
+    description: "Export library files (.so, .dll, .dylib, .a)"
     required: false
-    default: 'true'
+    default: "true"
   export-bins:
-    description: 'Export binary files'
+    description: "Export binary files"
     required: false
-    default: 'true'
+    default: "true"
   features:
-    description: 'Rust features to enable'
+    description: "Rust features to enable"
     required: false
-    default: ''
+    default: ""
   use-cross:
-    description: 'Use cross-rs for building'
+    description: "Use cross-rs for building"
     required: false
-    default: 'false'
+    default: "false"
 
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
     - name: Install Rust
       uses: dtolnay/rust-toolchain@stable
@@ -106,5 +106,5 @@ runs:
         fi
 
 branding:
-  icon: 'package'
-  color: 'orange'
+  icon: "package"
+  color: "orange"

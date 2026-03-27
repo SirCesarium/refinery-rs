@@ -1,25 +1,25 @@
-name: 'Refinery-RS CI'
-description: 'Quality gate with Sweet (swt), Clippy, and Fmt.'
-author: 'SirCesarium'
+name: "Refinery-RS CI"
+description: "Quality gate with Sweet (swt), Clippy, and Fmt."
+author: "SirCesarium"
 inputs:
   enable-sweet:
-    description: 'Run Sweet (swt) analysis'
-    default: 'true'
+    description: "Run Sweet (swt) analysis"
+    default: "true"
   enable-clippy:
-    description: 'Run Clippy lints'
-    default: 'true'
+    description: "Run Clippy lints"
+    default: "true"
   enable-fmt:
-    description: 'Check Rust formatting'
-    default: 'true'
+    description: "Check Rust formatting"
+    default: "true"
   sweet-threshold:
-    description: 'Custom threshold for sweet'
-    default: '.'
+    description: "Custom threshold for sweet"
+    default: "."
   clippy-args:
-    description: 'Additional args for clippy'
-    default: '--workspace -- -D warnings'
+    description: "Additional args for clippy"
+    default: "--workspace -- -D warnings"
 
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
     - name: Install Rust toolchain
       uses: dtolnay/rust-toolchain@stable
@@ -30,26 +30,24 @@ runs:
       uses: Swatinem/rust-cache@v2
 
     - name: Install Sweet (swt)
-      if: inputs.enable-sweet == 'true'
+      if: ${{ inputs.enable-sweet == 'true' }}
       run: |
         if ! command -v swt &> /dev/null; then
-          echo "Installing Sweet (swt)..."
           cargo install swt --quiet
         fi
       shell: bash
 
     - name: Run Sweet Analysis
-      if: inputs.enable-sweet == 'true'
-      run: |
-        swt ${{ inputs.sweet-threshold }} --quiet || echo "::warning:: 🍬 Sweet identified potential maintainability issues in your code!"
+      if: ${{ inputs.enable-sweet == 'true' }}
+      run: swt ${{ inputs.sweet-threshold }} --quiet
       shell: bash
 
     - name: Check Formatting
-      if: inputs.enable-fmt == 'true'
+      if: ${{ inputs.enable-fmt == 'true' }}
       run: cargo fmt --all -- --check
       shell: bash
 
     - name: Run Clippy
-      if: inputs.enable-clippy == 'true'
+      if: ${{ inputs.enable-clippy == 'true' }}
       run: cargo clippy ${{ inputs.clippy-args }}
       shell: bash
