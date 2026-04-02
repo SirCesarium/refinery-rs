@@ -26,4 +26,4 @@ runs:
       shell: bash
       run: |
         mkdir -p output
-        cp target/x86_64-pc-windows-msvc/release/${{ inputs.binary_name }}.exe output/
+        cp target/x86_64-pc-windows-msvc/release/${{ inputs.binary_name }}.exe output/${{ inputs.binary_name }}-windows-x86_64.exe

@@ -30,4 +30,4 @@ runs:
       shell: bash
       run: |
         mkdir -p output
-        cp target/x86_64-unknown-linux-musl/release/${{ inputs.binary_name }} output/
+        cp target/x86_64-unknown-linux-musl/release/${{ inputs.binary_name }} output/${{ inputs.binary_name }}-linux-x86_64

@@ -30,4 +30,4 @@ runs:
       shell: bash
       run: |
         mkdir -p output
-        cp target/aarch64-apple-darwin/release/${{ inputs.binary_name }} output/
+        cp target/aarch64-apple-darwin/release/${{ inputs.binary_name }} output/${{ inputs.binary_name }}-macos-aarch64
