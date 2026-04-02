@@ -31,6 +31,11 @@ pub enum RefineryError {
     #[error("Failed to process YAML configuration: {0}")]
     #[diagnostic(code(refinery::yaml_error))]
     Yaml(#[from] serde_yaml::Error),
+
+    /// Network related errors for updates or external API calls.
+    #[error("Network operation failed: {0}")]
+    #[diagnostic(code(refinery::network_error))]
+    Network(#[from] reqwest::Error),
 }
 
 /// Type alias for Refinery results.

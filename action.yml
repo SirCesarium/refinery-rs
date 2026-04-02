@@ -1,5 +1,5 @@
 name: "Refinery-RS Build"
-description: "Surgical Rust build action for multiple targets with library and binary export."
+description: "Refining Rust into universal artifacts."
 author: "SirCesarium"
 inputs:
   publish-docker:
