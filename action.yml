@@ -12,18 +12,18 @@ runs:
   steps:
     - name: Build for Linux 🐧
       if: runner.os == 'Linux'
-      uses: ./.github/actions/components/build/linux
+      uses: sircesarium/refinery-rs/components/build/linux@main
       with:
         binary_name: ${{ inputs.binary_name }}
 
     - name: Build for Windows 🪟
       if: runner.os == 'Windows'
-      uses: ./.github/actions/components/build/windows
+      uses: sircesarium/refinery-rs/components/build/windows@main
       with:
         binary_name: ${{ inputs.binary_name }}
 
     - name: Build for macOS 🍎
       if: runner.os == 'macOS'
-      uses: ./.github/actions/components/build/mac
+      uses: sircesarium/refinery-rs/components/build/mac@main
       with:
         binary_name: ${{ inputs.binary_name }}
