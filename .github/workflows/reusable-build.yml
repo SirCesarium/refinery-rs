@@ -182,7 +182,7 @@ jobs:
           package: ${{ inputs.package }}
 
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: artifacts-${{ matrix.target }}
           path: artifacts/*
@@ -195,7 +195,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6.0.2
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: all-artifacts
           merge-multiple: true
@@ -216,7 +216,7 @@ jobs:
 
       - name: Publish to GHCR (Docker)
         if: inputs.publish-gh-packages
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -224,7 +224,7 @@ jobs:
       
       - name: Build and push Docker image
         if: inputs.publish-gh-packages
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           push: true

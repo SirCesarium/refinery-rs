@@ -57,7 +57,7 @@ runs:
 
     - name: Install Cross
       if: inputs.use-cross == 'true'
-      uses: taiki-e/install-action@v2.71.0
+      uses: taiki-e/install-action@v2.71.1
       with:
         tool: cross
 
