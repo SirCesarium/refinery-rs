@@ -131,14 +131,31 @@ runs:
           echo "✅ Exported libraries for $OS-$ARCH"
         fi
 
-    - name: Run External Packaging Scripts
+    - name: Install Packaging Tools
+      if: inputs.package == 'true'
+      uses: taiki-e/install-action@v2.71.0
+      with:
+        tool: ${{ runner.os == 'Linux' && 'cargo-deb,cargo-generate-rpm' || (runner.os == 'Windows' && 'cargo-wix' || '') }}
+
+    - name: Package (.deb, .rpm, .msi)
       if: inputs.package == 'true'
       shell: bash
       run: |
-        chmod +x ${{ github.action_path }}/scripts/setup_tools.sh
-        chmod +x ${{ github.action_path }}/scripts/package.sh
-        ${{ github.action_path }}/scripts/setup_tools.sh
-        ${{ github.action_path }}/scripts/package.sh "${{ inputs.target }}" "${{ inputs.package-name || github.event.repository.name }}" "${{ inputs.binary-name || github.event.repository.name }}" "${{ runner.os == 'Windows' && 'windows-latest' || (runner.os == 'Linux' && 'ubuntu-latest' || 'macos-latest') }}"
+        TARGET="${{ inputs.target }}"
+        if [[ "${{ runner.os }}" == "Linux" ]]; then
+          echo "📦 Packaging for Debian/RPM..."
+          cargo deb --target "$TARGET" --no-build
+          cargo generate-rpm --target "$TARGET"
+          cp target/"$TARGET"/debian/*.deb artifacts/ 2>/dev/null || true
+          cp target/generate-rpm/*.rpm artifacts/ 2>/dev/null || cp target/"$TARGET"/generate-rpm/*.rpm artifacts/ 2>/dev/null || true
+        fi
+
+        if [[ "${{ runner.os }}" == "Windows" ]]; then
+          echo "📦 Packaging for MSI..."
+          mkdir -p target/"$TARGET"/release
+          cp artifacts/*.exe target/"$TARGET"/release/ 2>/dev/null || true
+          cargo wix --target "$TARGET" --no-build -o artifacts/
+        fi
 
     - name: Publish to GitHub Packages (Docker)
       if: inputs.publish-docker == 'true'
