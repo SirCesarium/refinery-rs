@@ -26,6 +26,7 @@ pub async fn run() -> Result<()> {
     ui::print_banner();
     ui::info("Starting intelligent factory setup...");
 
+    // 1. Ensure Cargo.toml exists before proceeding
     ensure_cargo_toml()?;
 
     if !Path::new(".github/workflows/release.yml").exists() {
@@ -58,6 +59,7 @@ fn ensure_cargo_toml() -> Result<()> {
     }
     Ok(())
 }
+
 fn setup_packaging_machinery() -> Result<()> {
     println!(
         "\n{}\n",
@@ -96,6 +98,7 @@ fn setup_packaging_machinery() -> Result<()> {
         }
     }
 
+    // Interactive Configuration for specific tools
     if cfg!(target_os = "linux") {
         configure_debian()?;
         configure_rpm()?;
@@ -186,6 +189,8 @@ fn configure_wix() -> Result<()> {
         }
     }
     Ok(())
+}
+
 async fn setup_docker_environment() -> Result<()> {
     println!(
         "\n{}\n",
@@ -210,7 +215,6 @@ async fn setup_docker_environment() -> Result<()> {
     }
 
     ui::info("Analyzing project for Docker optimization...");
-
     let bin_name = get_binary_name_from_cargo();
     let debian_tag = fetch_latest_debian_tag()
         .await

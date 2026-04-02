@@ -54,11 +54,11 @@ jobs:
     steps:
       - uses: actions/checkout@v6.0.2
       - name: Refinery CI
-        uses: sircesarium/refinery-rs/ci@v2.0
+        uses: sircesarium/refinery-rs/ci@main
         with:
-          enable-sweet: {enable_sweet}
-          enable-clippy: {enable_clippy}
-          enable-fmt: {enable_fmt}
+          enable-sweet: <enable_sweet>
+          enable-clippy: <enable_clippy>
+          enable-fmt: <enable_fmt>
 ", 
             enable_sweet = config.enable_sweet,
             enable_clippy = config.enable_clippy,
@@ -96,7 +96,7 @@ jobs:
             }
         }
 
-        let content = yaml_block!(r"name: Release & Export
+        let mut content = yaml_block!(r"name: Release & Export
 
 on:
   push:
@@ -111,11 +111,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-{matrix_include}
+<matrix_include>
     steps:
       - uses: actions/checkout@v6.0.2
       - name: Refinery Build
-        uses: sircesarium/refinery-rs@v2.0
+        uses: sircesarium/refinery-rs@main
         with:
           target: ${{ matrix.target }}
           binary-name: ${{ matrix.bin }}
@@ -125,7 +125,12 @@ jobs:
           publish-docker: ${{ matrix.docker }}
           use-cross: ${{ matrix.use_cross }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
+",
+            matrix_include = matrix_include.trim_end(),
+        );
 
+        if config.features.publish_crates {
+            content.push_str(r"
   publish-crates:
     name: Publish to Crates.io
     runs-on: ubuntu-latest
@@ -134,9 +139,8 @@ jobs:
       - uses: actions/checkout@v6.0.2
       - name: Publish
         run: cargo publish --token ${{ secrets.CRATES_IO_TOKEN }}
-",
-            matrix_include = matrix_include.trim_end(),
-        );
+");
+        }
 
         self.write_file(&path, &content)?;
         Ok(path)
@@ -154,7 +158,7 @@ jobs:
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::ReleaseFeatures;
+    use crate::models::{BinaryConfig, ReleaseFeatures};
 
     #[test]
     fn test_ci_config_generation() -> Result<()> {

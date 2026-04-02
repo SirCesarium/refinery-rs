@@ -34,6 +34,7 @@ pub fn run(action: ReleaseAction) -> Result<()> {
     }
 }
 
+#[allow(clippy::needless_pass_by_value)]
 fn create_release(bump: &str, use_changelog: bool, title: Option<String>, prerelease: bool) -> Result<()> {
     ui::print_banner();
     ui::info("Starting the release process...");
@@ -62,10 +63,11 @@ fn create_release(bump: &str, use_changelog: bool, title: Option<String>, prerel
     ui::info(&format!("Current version: v{current_version}"));
     ui::success(&format!("Planned version: {new_tag}"));
 
-    let mut changelog_content = String::new();
-    if use_changelog {
-        changelog_content = capture_changelog()?;
-    }
+    let changelog_content = if use_changelog {
+        capture_changelog()?
+    } else {
+        String::new()
+    };
 
     println!("\n{}\n", console::Style::new().cyan().apply_to("--- Release Preview ---"));
     ui::info(&format!("File: Cargo.toml [version: {current_version} -> {new_version}]"));
@@ -205,19 +207,18 @@ fn create_and_push_tag(tag: &str, title: Option<&str>, body: &str, prerelease: b
         if push_status.success() {
             ui::success("Release pushed successfully!");
             if is_gh_installed() {
-                create_gh_release(tag, title, body, prerelease)?;
+                create_gh_release(tag, title, body, prerelease);
             }
         }
     }
     Ok(())
 }
 
-fn create_gh_release(tag: &str, title: Option<&str>, body: &str, prerelease: bool) -> Result<()> {
+fn create_gh_release(tag: &str, title: Option<&str>, body: &str, prerelease: bool) {
     ui::info("GitHub CLI detected. Creating a formal release...");
     let mut args = vec!["release", "create", tag, "--title", title.unwrap_or(tag), "--notes", body];
     if prerelease { args.push("--prerelease"); }
     let _ = Command::new("gh").args(args).status();
-    Ok(())
 }
 
 fn is_gh_installed() -> bool {
