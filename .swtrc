@@ -1,0 +1,11 @@
+{
+    "thresholds": {
+        "global": {
+            "max_depth": 6,
+            "max_imports": 25,
+            "max_lines": 250,
+            "max_repetition": 16,
+            "min_duplicate_lines": 4
+        }
+    }
+}
