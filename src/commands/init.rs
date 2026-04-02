@@ -21,8 +21,14 @@ pub fn run(force: bool) -> Result<()> {
     .prompt()?;
 
     match workflow_type {
-        "CI (Validation)" => init_ci_workflow(&writer),
-        "Release (Build & Export)" => init_release_workflow(&writer),
+        "CI (Validation)" => {
+            writer.check_conflict("ci")?;
+            init_ci_workflow(&writer)
+        }
+        "Release (Build & Export)" => {
+            writer.check_conflict("release")?;
+            init_release_workflow(&writer)
+        }
         _ => unreachable!(),
     }
 }
@@ -104,6 +110,11 @@ fn init_release_workflow(writer: &WorkflowWriter) -> Result<()> {
     println!("\n{}\n", Style::new().cyan().apply_to("--- Global Pipeline Configuration ---"));
 
     let publish_docker = ui::prompt_confirm("Would you like to publish a Docker image to GHCR?", false)?;
+    if publish_docker && !std::path::Path::new("Dockerfile").exists() {
+        ui::warn("No Dockerfile found in the project root.");
+        ui::info("Remember to run 'refinery setup' after this to generate an optimized one.");
+    }
+    
     let publish_crates = ui::prompt_confirm("Do you want to publish to crates.io?", false)?;
 
     let config = ReleaseConfig {
@@ -116,5 +127,43 @@ fn init_release_workflow(writer: &WorkflowWriter) -> Result<()> {
 
     let path = writer.write_release(&config)?;
     ui::success(&format!("Generated Release workflow at {}", Style::new().bold().apply_to(path)));
+
+    check_machinery_after_init(&config);
     Ok(())
+    }
+
+    fn check_machinery_after_init(config: &ReleaseConfig) {
+    let mut missing = Vec::new();
+
+    let needs_package = config.binaries.iter().any(|b| b.enable_packaging);
+    if needs_package {
+        if cfg!(target_os = "linux") {
+            if !is_cmd_installed("cargo-deb") { missing.push("cargo-deb"); }
+            if !is_cmd_installed("cargo-generate-rpm") { missing.push("cargo-generate-rpm"); }
+        } else if cfg!(target_os = "windows") && !is_cmd_installed("cargo-wix") {
+            missing.push("cargo-wix");
+        }
+    }
+
+    if config.features.publish_docker && !is_cmd_installed("docker") {
+        missing.push("docker");
+    }
+    if !missing.is_empty() {
+        println!();
+        ui::warn("Local environment summary:");
+
+        if missing.contains(&"docker") {
+            ui::info("- You are missing: Docker setup (required for containerized exports).");
+        }
+
+        let has_packaging = missing.iter().any(|&m| m != "docker");
+        if has_packaging {
+            ui::info("- You are missing: Packaging setup (required for building .msi, .rpm, .deb).");
+        }
+
+        ui::info("Execute 'refinery setup' to equip your local plant with the missing tools and configurations.");
+    }
+}
+fn is_cmd_installed(name: &str) -> bool {
+    std::process::Command::new(name).arg("--version").output().is_ok()
 }

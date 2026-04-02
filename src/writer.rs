@@ -1,11 +1,11 @@
 //! Logic for writing workflow files to the .github/workflows directory.
 
+use std::fs;
+use std::fmt::Write;
+use std::path::Path;
 use crate::errors::{RefineryError, Result};
 use crate::models::{CiConfig, ReleaseConfig};
 use crate::yaml_block;
-use std::fmt::Write;
-use std::fs;
-use std::path::Path;
 
 /// A writer capable of generating and updating project configuration files.
 pub struct WorkflowWriter {
@@ -29,10 +29,18 @@ impl WorkflowWriter {
         Ok(())
     }
 
+    pub fn check_conflict(&self, name: &str) -> Result<()> {
+        if self.force { return Ok(()); }
+        let path = format!("{}/{}.yml", self.output_dir, name);
+        if Path::new(&path).exists() {
+            return Err(RefineryError::FileExists(path));
+        }
+        Ok(())
+    }
+
     pub fn write_ci(&self, config: &CiConfig) -> Result<String> {
         let path = format!("{}/ci.yml", self.output_dir);
-        let content = yaml_block!(
-            r"name: CI Validation
+        let content = yaml_block!(r"name: CI Validation
 
 on:
   push:
@@ -51,7 +59,7 @@ jobs:
           enable-sweet: {enable_sweet}
           enable-clippy: {enable_clippy}
           enable-fmt: {enable_fmt}
-",
+", 
             enable_sweet = config.enable_sweet,
             enable_clippy = config.enable_clippy,
             enable_fmt = config.enable_fmt
@@ -62,7 +70,7 @@ jobs:
 
     pub fn write_release(&self, config: &ReleaseConfig) -> Result<String> {
         let path = format!("{}/release.yml", self.output_dir);
-
+        
         let mut matrix_include = String::new();
         for bin in &config.binaries {
             for target in &bin.targets {
@@ -73,17 +81,12 @@ jobs:
                 } else {
                     "ubuntu-latest"
                 };
-
-                let can_docker = config.features.publish_docker
-                    && target.contains("linux")
-                    && target.contains("x86_64")
-                    && bin.name == "swt";
-                let use_cross = target.contains("musl")
-                    || target.contains("i686")
-                    || target.contains("aarch64-unknown-linux-gnu");
-
+                
+                let can_docker = config.features.publish_docker && target.contains("linux") && target.contains("x86_64") && bin.name == "swt";
+                let use_cross = target.contains("musl") || target.contains("i686") || target.contains("aarch64-unknown-linux-gnu");
+                
                 let _ = writeln!(
-                    matrix_include,
+                    matrix_include, 
                     "          - target: {target}\n            os: {os}\n            bin: {bin_name}\n            features: \"{features}\"\n            export_libs: {export_libs}\n            package: {package}\n            docker: {can_docker}\n            use_cross: {use_cross}",
                     bin_name = bin.name,
                     features = bin.features,
@@ -93,8 +96,7 @@ jobs:
             }
         }
 
-        let mut content = yaml_block!(
-            r"name: Release & Export
+        let content = yaml_block!(r"name: Release & Export
 
 on:
   push:
@@ -122,13 +124,7 @@ jobs:
           package: ${{ matrix.package }}
           publish-docker: ${{ matrix.docker }}
           use-cross: ${{ matrix.use_cross }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}",
-            matrix_include = matrix_include.trim_end(),
-        );
-
-        if config.features.publish_crates {
-            content.push_str(
-                r"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
   publish-crates:
     name: Publish to Crates.io
@@ -139,8 +135,8 @@ jobs:
       - name: Publish
         run: cargo publish --token ${{ secrets.CRATES_IO_TOKEN }}
 ",
-            );
-        }
+            matrix_include = matrix_include.trim_end(),
+        );
 
         self.write_file(&path, &content)?;
         Ok(path)
@@ -158,7 +154,7 @@ jobs:
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::{BinaryConfig, ReleaseFeatures};
+    use crate::models::ReleaseFeatures;
 
     #[test]
     fn test_ci_config_generation() -> Result<()> {
@@ -168,10 +164,10 @@ mod tests {
             enable_clippy: false,
             enable_fmt: true,
         };
-
+        
         let path = writer.write_ci(&config)?;
         assert!(Path::new(&path).exists());
-
+        
         let content = fs::read_to_string(path)?;
         assert!(content.contains("enable-sweet: true"));
         assert!(content.contains("enable-clippy: false"));
@@ -189,11 +185,12 @@ mod tests {
             }],
             features: ReleaseFeatures::default(),
         };
-
+        
         let path = writer.write_release(&config)?;
         let content = fs::read_to_string(path)?;
         assert!(content.contains("bin: test-app"));
         assert!(content.contains("target: x86_64-unknown-linux-gnu"));
+        assert!(content.contains("${{ matrix.bin }}"));
         Ok(())
     }
 }

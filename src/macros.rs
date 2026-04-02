@@ -1,12 +1,16 @@
 //! Domain-specific macros for Refinery-RS.
 
 /// Macro to generate YAML blocks with proper escaping for GitHub Actions.
-/// Handles double braces automatically for the user.
+/// Uses runtime replacement to avoid conflicts with Rust's format! braces.
 #[macro_export]
 macro_rules! yaml_block {
-    ($($t:tt)*) => {
-        format!($($t)*)
-            .replace("${{", "${{{{")
-            .replace("}}", "}}}}")
+    ($raw:expr, $($key:ident = $val:expr),* $(,)?) => {
+        {
+            let mut s = $raw.to_string();
+            $(
+                s = s.replace(&format!("{{{}}}", stringify!($key)), &$val.to_string());
+            )*
+            s
+        }
     };
 }
