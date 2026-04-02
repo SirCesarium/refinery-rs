@@ -1,16 +1,16 @@
-name: 'Refinery-RS Framework'
-description: 'All-in-one Rust compilation framework 🦀🏭'
+name: "Refinery-RS Framework"
+description: "All-in-one Rust compilation framework 🦀🏭"
 
 inputs:
   binary_name:
-    description: 'The name of your project binary'
+    description: "The name of your project binary"
     required: true
   features:
-    description: 'Space separated list of features to enable'
+    description: "Space separated list of features to enable"
     required: false
-    default: ''
+    default: ""
   github_token:
-    description: 'Token to upload to release'
+    description: "Token to upload to release"
     required: true
 
 runs:
@@ -38,8 +38,8 @@ runs:
         features: ${{ inputs.features }}
 
     - name: Auto-Release 🏷️
-      uses: softprops/action-gh-release@v2
-      with:
-        files: output/*
+      shell: bash
+      run: |
+        gh release create ${{ github.ref_name }} output/* --target ${{ github.sha }} --yes --clobber
       env:
         GITHUB_TOKEN: ${{ inputs.github_token }}
