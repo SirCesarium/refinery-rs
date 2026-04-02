@@ -133,7 +133,7 @@ runs:
 
     - name: Install Packaging Tools
       if: inputs.package == 'true'
-      uses: taiki-e/install-action@v2.71.0
+      uses: taiki-e/install-action@v2.71.1
       with:
         tool: ${{ runner.os == 'Linux' && 'cargo-deb,cargo-generate-rpm' || (runner.os == 'Windows' && 'cargo-wix' || '') }}
 

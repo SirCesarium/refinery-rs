@@ -1,6 +1,6 @@
-# 🦀 Refinery-RS
+# 🦀🏭 Refinery-RS
 
-Surgical Rust tools for automated matrix builds and code quality.
+> Refining Rust into universal artifacts: The **industrial-grade** production plant for exporting **Rust** to almost every machine on Earth.
 
 ## Features
 
