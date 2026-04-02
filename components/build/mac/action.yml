@@ -5,6 +5,10 @@ inputs:
   binary_name:
     description: 'Name of the resulting binary'
     required: true
+  features:
+    description: 'Features to enable'
+    required: false
+    default: ''
 
 runs:
   using: "composite"
@@ -15,7 +19,12 @@ runs:
 
     - name: Build Binary 🏗️
       shell: bash
-      run: cargo build --release --target aarch64-apple-darwin
+      run: |
+        if [ -z "${{ inputs.features }}" ]; then
+          cargo build --release --target aarch64-apple-darwin
+        else
+          cargo build --release --target aarch64-apple-darwin --features "${{ inputs.features }}"
+        fi
 
     - name: Prepare Artifact 📦
       shell: bash

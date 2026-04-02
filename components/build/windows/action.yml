@@ -5,13 +5,22 @@ inputs:
   binary_name:
     description: 'Name of the resulting binary'
     required: true
+  features:
+    description: 'Features to enable'
+    required: false
+    default: ''
 
 runs:
   using: "composite"
   steps:
     - name: Build Binary 🏗️
       shell: bash
-      run: cargo build --release --target x86_64-pc-windows-msvc
+      run: |
+        if [ -z "${{ inputs.features }}" ]; then
+          cargo build --release --target x86_64-pc-windows-msvc
+        else
+          cargo build --release --target x86_64-pc-windows-msvc --features "${{ inputs.features }}"
+        fi
 
     - name: Prepare Artifact 📦
       shell: bash
