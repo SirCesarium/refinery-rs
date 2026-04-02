@@ -50,5 +50,5 @@ pub fn print_banner() {
                                  /____/  
     ";
     println!("{}", orange.apply_to(banner));
-    println!("Surgical Workflow Management for Rust projects\n");
+    println!("🦀 Refining Rust into universal artifacts.\n");
 }
