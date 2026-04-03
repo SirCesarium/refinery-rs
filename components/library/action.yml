@@ -23,6 +23,9 @@ runs:
         binary_name: ${{ inputs.binary_name }}
         target: ${{ inputs.target }}
         output_dir: ${{ inputs.output_dir }}
+        linux_32bit: ${{ inputs.linux_32bit }}
+        linux_arm64: ${{ inputs.linux_arm64 }}
+        linux_armv7: ${{ inputs.linux_armv7 }}
 
     - name: Build Windows Library
       if: runner.os == 'Windows'

@@ -13,14 +13,32 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Install Rust Target
+    - name: Install musl-tools
       shell: bash
-      run: rustup target add ${{ inputs.target }}
+      run: sudo apt-get update && sudo apt-get install -y musl-tools
 
-    - name: Build Library
+    - name: Build Multi-Arch Libraries
       shell: bash
       run: |
-        cargo build --release --target ${{ inputs.target }}
-        mkdir -p ${{ inputs.output_dir }}/lib/${{ inputs.target }}
-        cp target/${{ inputs.target }}/release/lib${{ inputs.binary_name }}.so ${{ inputs.output_dir }}/lib/${{ inputs.target }}/ 2>/dev/null || true
-        cp target/${{ inputs.target }}/release/lib${{ inputs.binary_name }}.a ${{ inputs.output_dir }}/lib/${{ inputs.target }}/ 2>/dev/null || true
+        TARGETS=("x86_64-unknown-linux-musl")
+        if [ "${{ inputs.linux_32bit }}" == "true" ]; then TARGETS+=("i686-unknown-linux-musl"); fi
+        if [ "${{ inputs.linux_arm64 }}" == "true" ]; then TARGETS+=("aarch64-unknown-linux-musl"); fi
+        if [ "${{ inputs.linux_armv7 }}" == "true" ]; then TARGETS+=("armv7-unknown-linux-musleabihf"); fi
+
+        for TARGET in "${TARGETS[@]}"; do
+          echo "🏗️ Building for $TARGET..."
+          rustup target add $TARGET
+          cargo build --release --target $TARGET
+
+          mkdir -p ${{ inputs.output_dir }}/lib/$TARGET
+
+          if [ -f "target/$TARGET/release/lib${{ inputs.binary_name }}.so" ]; then
+            cp "target/$TARGET/release/lib${{ inputs.binary_name }}.so" \
+               "${{ inputs.output_dir }}/lib/$TARGET/lib${{ inputs.binary_name }}-$TARGET.so"
+          fi
+
+          if [ -f "target/$TARGET/release/lib${{ inputs.binary_name }}.a" ]; then
+            cp "target/$TARGET/release/lib${{ inputs.binary_name }}.a" \
+               "${{ inputs.output_dir }}/lib/$TARGET/lib${{ inputs.binary_name }}-$TARGET.a"
+          fi
+        done
