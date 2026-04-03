@@ -42,6 +42,11 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: Rust Cache 🦀⚡
+      uses: Swatinem/rust-cache@v2
+      with:
+        key: ${{ inputs.binary_name }}
+        shared-key: "refinery-shared-build"
     # ---------------------------------------------------------
     # LINUX
     # ---------------------------------------------------------

@@ -44,6 +44,10 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: Prepare Workspace 🧹
+      shell: bash
+      run: mkdir -p output
+
     - name: Build Orchestration 🏗️
       uses: sircesarium/refinery-rs/components/build@main
       with:

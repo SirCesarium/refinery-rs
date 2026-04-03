@@ -1,5 +1,5 @@
 name: "Refinery-RS Linux Packager"
-description: "Generates .deb and .rpm installers for x86_64 Linux 🐧"
+description: "Optimized .deb and .rpm generation"
 
 inputs:
   binary_name:
@@ -7,11 +7,17 @@ inputs:
     required: true
   output_dir:
     description: "Final directory for the packages"
-    default: "output/packages"
+    default: "output"
 
 runs:
   using: "composite"
   steps:
+    - name: Cache Packaging Tools 💾
+      uses: actions/cache@v4
+      with:
+        path: ~/.cargo/bin/
+        key: ${{ runner.os }}-packaging-tools-v1
+
     - name: Install Packaging Tools 🛠️
       shell: bash
       run: |
@@ -26,17 +32,13 @@ runs:
       shell: bash
       run: mkdir -p ${{ inputs.output_dir }}
 
-    - name: Package .deb (Debian/Ubuntu) 📦
+    - name: Package .deb 📦
       shell: bash
       run: |
-        echo "Refinery: Packaging DEB..."
-        # Generamos el deb
-        cargo deb --no-build --target x86_64-unknown-linux-musl --output ${{ inputs.output_dir }}/
+        # Generar con nombre específico de una vez
+        cargo deb --no-build --target x86_64-unknown-linux-musl --output "${{ inputs.output_dir }}/${{ inputs.binary_name }}-linux.deb"
 
-        mv ${{ inputs.output_dir }}/*.deb ${{ inputs.output_dir }}/${{ inputs.binary_name }}.deb
-
-    - name: Package .rpm (Fedora/RHEL) 📦
+    - name: Package .rpm 📦
       shell: bash
       run: |
-        echo "Refinery: Packaging RPM..."
-        cargo generate-rpm --target x86_64-unknown-linux-musl --output ${{ inputs.output_dir }}/${{ inputs.binary_name }}.rpm
+        cargo generate-rpm --target x86_64-unknown-linux-musl --output "${{ inputs.output_dir }}/${{ inputs.binary_name }}-linux.rpm"
