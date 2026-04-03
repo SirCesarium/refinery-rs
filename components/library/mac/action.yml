@@ -10,17 +10,28 @@ inputs:
   output_dir:
     description: "Directory where the libraries will be stored"
     default: "output"
+  macos_x86:
+    description: "Build library for macOS Intel"
+    required: false
+    default: "false"
 runs:
   using: "composite"
   steps:
-    - name: Install Rust Target
-      shell: bash
-      run: rustup target add ${{ inputs.target }}
-
-    - name: Build Library
+    - name: Build Multi-Arch macOS Libraries
       shell: bash
       run: |
-        cargo build --release --target ${{ inputs.target }}
-        mkdir -p ${{ inputs.output_dir }}/lib/${{ inputs.target }}
-        cp target/${{ inputs.target }}/release/lib${{ inputs.binary_name }}.dylib ${{ inputs.output_dir }}/lib/${{ inputs.target }}/ 2>/dev/null || true
-        cp target/${{ inputs.target }}/release/lib${{ inputs.binary_name }}.a ${{ inputs.output_dir }}/lib/${{ inputs.target }}/ 2>/dev/null || true
+        TARGETS=("aarch64-apple-darwin")
+        if [ "${{ inputs.macos_x86 }}" == "true" ]; then TARGETS+=("x86_64-apple-darwin"); fi
+
+        for TARGET in "${TARGETS[@]}"; do
+          echo "🏗️ Building macOS for $TARGET..."
+          rustup target add $TARGET
+          
+          cargo build --release --target $TARGET
+
+          LIB_DIR="${{ inputs.output_dir }}/lib/$TARGET"
+          mkdir -p "$LIB_DIR"
+
+          cp target/$TARGET/release/lib${{ inputs.binary_name }}.dylib "$LIB_DIR/lib${{ inputs.binary_name }}-$TARGET.dylib" 2>/dev/null || echo "DYLIB not found"
+          cp target/$TARGET/release/lib${{ inputs.binary_name }}.a "$LIB_DIR/lib${{ inputs.binary_name }}-$TARGET.a" 2>/dev/null || echo "A not found"
+        done
