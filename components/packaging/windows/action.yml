@@ -1,0 +1,39 @@
+name: "Refinery-RS Windows Packager"
+description: "Generates professional .msi installers using WiX 🪟"
+
+inputs:
+  binary_name:
+    description: "The name of the binary to package"
+    required: true
+  output_dir:
+    description: "Final directory for the packages"
+    default: "output"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Cache WiX Toolset 💾
+      id: cache-wix
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/bin/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+        key: ${{ runner.os }}-wix-tools-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-wix-tools-
+
+    - name: Install cargo-wix 🛠️
+      if: steps.cache-wix.outputs.cache-hit != 'true'
+      shell: bash
+      run: cargo install cargo-wix --quiet
+
+    - name: Add Cargo Bin to Path 🚀
+      shell: bash
+      run: echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+    - name: Package .msi 📦
+      shell: pwsh
+      run: |
+        cargo wix --no-build --nocapture --output "${{ inputs.output_dir }}/${{ inputs.binary_name }}.msi"

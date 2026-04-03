@@ -40,6 +40,10 @@ inputs:
     description: "Enable .deb and .rpm packaging for Linux"
     required: false
     default: "false"
+  windows_packaging:
+    description: "Enable .msi packaging for Windows"
+    required: false
+    default: "false"
 
 runs:
   using: "composite"
@@ -60,6 +64,7 @@ runs:
         windows_arm64: ${{ inputs.windows_arm64 }}
         macos_x86: ${{ inputs.macos_x86 }}
         linux_packaging: ${{ inputs.linux_packaging }}
+        windows_packaging: ${{ inputs.windows_packaging }}
 
     - name: Auto-Release 🏷️
       uses: softprops/action-gh-release@v2
