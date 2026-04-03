@@ -83,6 +83,9 @@ runs:
         output_dir: "output"
         generate_headers: ${{ inputs.generate_headers }}
         target: ${{ runner.os == 'Windows' && 'x86_64-pc-windows-msvc' || (runner.os == 'macOS' && 'x86_64-apple-darwin' || 'x86_64-unknown-linux-musl') }}
+        linux_32bit: ${{ inputs.linux_32bit }}
+        linux_arm64: ${{ inputs.linux_arm64 }}
+        linux_armv7: ${{ inputs.linux_armv7 }}
 
     - name: Auto-Release 🏷️
       uses: softprops/action-gh-release@v2

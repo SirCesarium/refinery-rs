@@ -10,6 +10,15 @@ inputs:
   output_dir:
     description: "Directory where the libraries will be stored"
     default: "output"
+  linux_32bit:
+    description: "Enable i686-unknown-linux-musl target"
+    default: "false"
+  linux_arm64:
+    description: "Enable aarch64-unknown-linux-musl target"
+    default: "false"
+  linux_armv7:
+    description: "Enable armv7-unknown-linux-musleabihf target"
+    default: "false"
 runs:
   using: "composite"
   steps:

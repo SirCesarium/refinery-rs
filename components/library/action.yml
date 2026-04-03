@@ -13,6 +13,18 @@ inputs:
   target:
     description: "The Rust target triple for the compilation"
     required: true
+  linux_32bit:
+    description: "Build library for i686 (32-bit Linux)"
+    required: false
+    default: "false"
+  linux_arm64:
+    description: "Build library for AArch64 (ARM 64-bit Linux)"
+    required: false
+    default: "false"
+  linux_armv7:
+    description: "Build library for ARMv7 (32-bit ARM Linux)"
+    required: false
+    default: "false"
 runs:
   using: "composite"
   steps:
