@@ -13,20 +13,22 @@ runs:
   using: "composite"
   steps:
     - name: Cache Packaging Tools 💾
+      id: cache-packaging
       uses: actions/cache@v4
       with:
-        path: ~/.cargo/bin/
-        key: ${{ runner.os }}-packaging-tools-v1
+        path: |
+          ~/.cargo/bin/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+        key: ${{ runner.os }}-packaging-tools-v2
 
     - name: Install Packaging Tools 🛠️
+      if: steps.cache-packaging.outputs.cache-hit != 'true'
       shell: bash
       run: |
-        if ! command -v cargo-deb &> /dev/null; then
-          cargo install cargo-deb --quiet
-        fi
-        if ! command -v cargo-generate-rpm &> /dev/null; then
-          cargo install cargo-generate-rpm --quiet
-        fi
+        cargo install cargo-deb --quiet
+        cargo install cargo-generate-rpm --quiet
 
     - name: Create Output Directory
       shell: bash
@@ -35,7 +37,6 @@ runs:
     - name: Package .deb 📦
       shell: bash
       run: |
-        # Generar con nombre específico de una vez
         cargo deb --no-build --target x86_64-unknown-linux-musl --output "${{ inputs.output_dir }}/${{ inputs.binary_name }}-linux.deb"
 
     - name: Package .rpm 📦
