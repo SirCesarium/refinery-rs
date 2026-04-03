@@ -22,32 +22,26 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Install musl-tools
+    - name: Install Cross
       shell: bash
-      run: sudo apt-get update && sudo apt-get install -y musl-tools
+      run: cargo install cross --git https://github.com/cross-rs/cross.git
 
     - name: Build Multi-Arch Libraries
       shell: bash
       run: |
+        export CROSS_RUSTFLAGS="-C target-feature=-crt-static"
+        
         TARGETS=("x86_64-unknown-linux-musl")
         if [ "${{ inputs.linux_32bit }}" == "true" ]; then TARGETS+=("i686-unknown-linux-musl"); fi
         if [ "${{ inputs.linux_arm64 }}" == "true" ]; then TARGETS+=("aarch64-unknown-linux-musl"); fi
         if [ "${{ inputs.linux_armv7 }}" == "true" ]; then TARGETS+=("armv7-unknown-linux-musleabihf"); fi
 
         for TARGET in "${TARGETS[@]}"; do
-          echo "🏗️ Building for $TARGET..."
-          rustup target add $TARGET
-          cargo build --release --target $TARGET
+          cross build --release --target $TARGET
 
-          mkdir -p ${{ inputs.output_dir }}/lib/$TARGET
-
-          if [ -f "target/$TARGET/release/lib${{ inputs.binary_name }}.so" ]; then
-            cp "target/$TARGET/release/lib${{ inputs.binary_name }}.so" \
-               "${{ inputs.output_dir }}/lib/$TARGET/lib${{ inputs.binary_name }}-$TARGET.so"
-          fi
-
-          if [ -f "target/$TARGET/release/lib${{ inputs.binary_name }}.a" ]; then
-            cp "target/$TARGET/release/lib${{ inputs.binary_name }}.a" \
-               "${{ inputs.output_dir }}/lib/$TARGET/lib${{ inputs.binary_name }}-$TARGET.a"
-          fi
+          LIB_DIR="${{ inputs.output_dir }}/lib/$TARGET"
+          mkdir -p "$LIB_DIR"
+          
+          cp "target/$TARGET/release/lib${{ inputs.binary_name }}.so" "$LIB_DIR/lib${{ inputs.binary_name }}-$TARGET.so" || true
+          cp "target/$TARGET/release/lib${{ inputs.binary_name }}.a" "$LIB_DIR/lib${{ inputs.binary_name }}-$TARGET.a" || true
         done
