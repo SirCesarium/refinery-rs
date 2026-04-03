@@ -1,0 +1,21 @@
+name: "Refinery-RS Header Generator"
+description: "Generates C language headers for cross-language interoperability"
+inputs:
+  output_dir:
+    description: "Directory where the .h file will be stored"
+    default: "output"
+runs:
+  using: "composite"
+  steps:
+    - name: Install cbindgen
+      shell: bash
+      run: |
+        if ! command -v cbindgen &> /dev/null; then
+          cargo install cbindgen --quiet
+        fi
+    - name: Generate C Header
+      shell: bash
+      run: |
+        mkdir -p ${{ inputs.output_dir }}/include
+        cbindgen --config cbindgen.toml --output ${{ inputs.output_dir }}/include/refinery_sdk.h || \
+        cbindgen --lang c --output ${{ inputs.output_dir }}/include/refinery_sdk.h

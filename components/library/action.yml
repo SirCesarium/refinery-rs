@@ -1,0 +1,47 @@
+name: "Refinery-RS Library Orchestrator"
+description: "Orchestrates the build of static and dynamic libraries across all platforms"
+inputs:
+  binary_name:
+    description: "The name of the library to build"
+    required: true
+  output_dir:
+    description: "Directory where the libraries and headers will be stored"
+    default: "output"
+  generate_headers:
+    description: "Whether to generate C headers using cbindgen"
+    default: "false"
+  target:
+    description: "The Rust target triple for the compilation"
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Build Linux Library
+      if: runner.os == 'Linux'
+      uses: sircesarium/refinery-rs/components/library/linux@main
+      with:
+        binary_name: ${{ inputs.binary_name }}
+        target: ${{ inputs.target }}
+        output_dir: ${{ inputs.output_dir }}
+
+    - name: Build Windows Library
+      if: runner.os == 'Windows'
+      uses: sircesarium/refinery-rs/components/library/windows@main
+      with:
+        binary_name: ${{ inputs.binary_name }}
+        target: ${{ inputs.target }}
+        output_dir: ${{ inputs.output_dir }}
+
+    - name: Build macOS Library
+      if: runner.os == 'macOS'
+      uses: sircesarium/refinery-rs/components/library/macos@main
+      with:
+        binary_name: ${{ inputs.binary_name }}
+        target: ${{ inputs.target }}
+        output_dir: ${{ inputs.output_dir }}
+
+    - name: Generate Headers
+      if: inputs.generate_headers == 'true'
+      uses: sircesarium/refinery-rs/components/library/headers@main
+      with:
+        output_dir: ${{ inputs.output_dir }}

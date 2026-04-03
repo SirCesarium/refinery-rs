@@ -2,6 +2,14 @@ name: "Refinery-RS Framework"
 description: "All-in-one Rust compilation framework 🦀🏭"
 
 inputs:
+  mode:
+    description: "Build mode: 'bin' for executables or 'lib' for shared/static libraries"
+    required: false
+    default: "bin"
+  generate_headers:
+    description: "Generate C headers using cbindgen (only for lib mode)"
+    required: false
+    default: "false"
   binary_name:
     description: "The name of your project binary"
     required: true
@@ -53,6 +61,7 @@ runs:
       run: mkdir -p output
 
     - name: Build Orchestration 🏗️
+      if: inputs.mode == 'bin'
       uses: sircesarium/refinery-rs/components/build@main
       with:
         binary_name: ${{ inputs.binary_name }}
@@ -66,12 +75,21 @@ runs:
         linux_packaging: ${{ inputs.linux_packaging }}
         windows_packaging: ${{ inputs.windows_packaging }}
 
+    - name: Library Orchestration 📚
+      if: inputs.mode == 'lib'
+      uses: sircesarium/refinery-rs/components/library@main
+      with:
+        binary_name: ${{ inputs.binary_name }}
+        output_dir: "output"
+        generate_headers: ${{ inputs.generate_headers }}
+        target: ${{ runner.os == 'Windows' && 'x86_64-pc-windows-msvc' || (runner.os == 'macOS' && 'x86_64-apple-darwin' || 'x86_64-unknown-linux-musl') }}
+
     - name: Auto-Release 🏷️
       uses: softprops/action-gh-release@v2
       with:
-        token: ${{ inputs.github_token }} 
+        token: ${{ inputs.github_token }}
         tag_name: ${{ github.ref_name }}
         target_commitish: ${{ github.sha }}
-        files: output/*
+        files: output/**/*
         fail_on_unmatched_files: false
         generate_release_notes: true

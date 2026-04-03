@@ -1,0 +1,22 @@
+name: "Refinery-RS macOS Library Builder"
+description: "Builds and exports macOS dynamic libraries and static archives"
+inputs:
+  binary_name:
+    description: "The name of the library to build"
+    required: true
+  target:
+    description: "The Rust target triple for the compilation"
+    required: true
+  output_dir:
+    description: "Directory where the libraries will be stored"
+    default: "output"
+runs:
+  using: "composite"
+  steps:
+    - name: Build Library
+      shell: bash
+      run: |
+        cargo build --release --target ${{ inputs.target }}
+        mkdir -p ${{ inputs.output_dir }}/lib/${{ inputs.target }}
+        cp target/${{ inputs.target }}/release/lib${{ inputs.binary_name }}.dylib ${{ inputs.output_dir }}/lib/${{ inputs.target }}/ 2>/dev/null || true
+        cp target/${{ inputs.target }}/release/lib${{ inputs.binary_name }}.a ${{ inputs.output_dir }}/lib/${{ inputs.target }}/ 2>/dev/null || true

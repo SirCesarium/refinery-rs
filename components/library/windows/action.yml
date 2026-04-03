@@ -1,0 +1,22 @@
+name: "Refinery-RS Windows Library Builder"
+description: "Builds and exports Windows dynamic link libraries and static libs"
+inputs:
+  binary_name:
+    description: "The name of the library to build"
+    required: true
+  target:
+    description: "The Rust target triple for the compilation"
+    required: true
+  output_dir:
+    description: "Directory where the libraries will be stored"
+    default: "output"
+runs:
+  using: "composite"
+  steps:
+    - name: Build Library
+      shell: bash
+      run: |
+        cargo build --release --target ${{ inputs.target }}
+        mkdir -p ${{ inputs.output_dir }}/lib/${{ inputs.target }}
+        cp target/${{ inputs.target }}/release/${{ inputs.binary_name }}.dll ${{ inputs.output_dir }}/lib/${{ inputs.target }}/ 2>/dev/null || true
+        cp target/${{ inputs.target }}/release/${{ inputs.binary_name }}.lib ${{ inputs.output_dir }}/lib/${{ inputs.target }}/ 2>/dev/null || true
