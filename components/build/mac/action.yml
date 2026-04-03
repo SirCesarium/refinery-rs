@@ -1,14 +1,14 @@
-name: 'Build Apple Silicon Binary'
-description: 'Compiles the Rust binary for macOS ARM64 🍎'
+name: "Build Apple Silicon Binary"
+description: "Compiles the Rust binary for macOS ARM64 🍎"
 
 inputs:
   binary_name:
-    description: 'Name of the resulting binary'
+    description: "Name of the resulting binary"
     required: true
   features:
-    description: 'Features to enable'
+    description: "Features to enable"
     required: false
-    default: ''
+    default: ""
 
 runs:
   using: "composite"

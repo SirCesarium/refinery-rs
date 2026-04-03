@@ -39,8 +39,8 @@ runs:
       with:
         binary_name: ${{ inputs.binary_name }}
         features: ${{ inputs.features }}
-        target: 'x86_64-unknown-linux-musl'
-        suffix: '-linux'
+        target: "x86_64-unknown-linux-musl"
+        suffix: "-linux"
 
     - name: Linux Legacy (i686)
       if: runner.os == 'Linux' && inputs.linux_32bit == 'true'
@@ -48,8 +48,8 @@ runs:
       with:
         binary_name: ${{ inputs.binary_name }}
         features: ${{ inputs.features }}
-        target: 'i686-unknown-linux-musl'
-        suffix: '-linux-i686'
+        target: "i686-unknown-linux-musl"
+        suffix: "-linux-i686"
 
     - name: Linux ARM64
       if: runner.os == 'Linux' && inputs.linux_arm64 == 'true'
@@ -57,8 +57,8 @@ runs:
       with:
         binary_name: ${{ inputs.binary_name }}
         features: ${{ inputs.features }}
-        target: 'aarch64-unknown-linux-musl'
-        suffix: '-linux-arm64'
+        target: "aarch64-unknown-linux-musl"
+        suffix: "-linux-arm64"
 
     - name: Linux ARMv7
       if: runner.os == 'Linux' && inputs.linux_armv7 == 'true'
@@ -66,8 +66,8 @@ runs:
       with:
         binary_name: ${{ inputs.binary_name }}
         features: ${{ inputs.features }}
-        target: 'armv7-unknown-linux-musleabihf'
-        suffix: '-linux-armv7'
+        target: "armv7-unknown-linux-musleabihf"
+        suffix: "-linux-armv7"
 
     # ---------------------------------------------------------
     # WINDOWS
