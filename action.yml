@@ -69,10 +69,9 @@ runs:
     - name: Auto-Release 🏷️
       uses: softprops/action-gh-release@v2
       with:
+        token: ${{ inputs.github_token }} 
         tag_name: ${{ github.ref_name }}
         target_commitish: ${{ github.sha }}
         files: output/*
         fail_on_unmatched_files: false
         generate_release_notes: true
-      env:
-        GITHUB_TOKEN: ${{ inputs.github_token }}
