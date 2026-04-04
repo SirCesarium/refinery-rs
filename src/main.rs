@@ -11,6 +11,7 @@
 
 mod commands;
 mod errors;
+mod macros;
 mod ui;
 
 #[tokio::main]
