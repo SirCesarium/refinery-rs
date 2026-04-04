@@ -10,6 +10,7 @@
 )]
 
 mod commands;
+mod core;
 mod errors;
 mod macros;
 mod ui;
