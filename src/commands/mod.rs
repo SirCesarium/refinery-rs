@@ -1,0 +1,74 @@
+use clap::{Parser, Subcommand};
+use miette::Result;
+
+pub mod init;
+pub mod release;
+
+pub struct Actions;
+
+/// Defines a top-level command logic.
+#[macro_export]
+macro_rules! cmd {
+    ($name:ident($($arg:ident: $typ:ty),*) $body:block) => {
+        impl $crate::commands::Actions {
+            pub async fn $name($($arg: $typ),*) -> miette::Result<()> {
+                $body
+            }
+        }
+    };
+}
+
+/// Defines logic for a variant using a prefixed method to avoid name collision.
+#[macro_export]
+macro_rules! subcmd {
+    ($enum_ty:ty, $variant:ident($($arg:ident: $typ:ty),*) $body:block) => {
+        impl $enum_ty {
+            paste::paste! {
+                pub async fn [<run_ $variant:snake>]($($arg: $typ),*) -> miette::Result<()> {
+                    $body
+                }
+            }
+        }
+    };
+}
+
+/// Automatically dispatches subcommands by calling the prefixed methods.
+#[macro_export]
+macro_rules! auto_dispatch {
+    ($target:expr, $enum_ty:ty, { $($variant:ident $(($arg:ident))?),* $(,)? }) => {
+        match $target {
+            $(
+                <$enum_ty>::$variant $(($arg))? => {
+                    paste::paste! {
+                        <$enum_ty>::[< run_ $variant:snake >]($($arg)?).await
+                    }
+                },
+            )*
+        }
+    };
+}
+
+#[derive(Parser)]
+#[command(name = "refinery", version)]
+pub struct Cli {
+    #[command(subcommand)]
+    pub command: Commands,
+}
+
+#[derive(Subcommand)]
+pub enum Commands {
+    Init,
+    Release(release::ReleaseArgs),
+}
+
+/// Orchestrates CLI execution.
+pub async fn execute() -> Result<()> {
+    let cli = Cli::parse();
+
+    match cli.command {
+        Commands::Init => Actions::init().await?,
+        Commands::Release(args) => Actions::release(args).await?,
+    }
+
+    Ok(())
+}

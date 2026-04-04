@@ -9,9 +9,15 @@
     missing_docs
 )]
 
+mod commands;
 mod errors;
 mod ui;
 
-fn main() {
+#[tokio::main]
+async fn main() -> miette::Result<()> {
     ui::print_banner();
+
+    commands::execute().await?;
+
+    Ok(())
 }
