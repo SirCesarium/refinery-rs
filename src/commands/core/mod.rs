@@ -3,6 +3,7 @@ use clap::{Args, Subcommand};
 
 use crate::auto_dispatch;
 use crate::cmd;
+use crate::commands::core::build::BuildArgs;
 
 #[derive(Args)]
 pub struct CoreArgs {
@@ -12,13 +13,13 @@ pub struct CoreArgs {
 
 #[derive(Subcommand)]
 pub enum CoreAction {
-    Build,
+    Build(BuildArgs),
 }
 
 pub mod build;
 
 cmd!(core(args: CoreArgs) {
     auto_dispatch!(args.action, CoreAction, {
-        Build
+        Build(args)
     })
 });

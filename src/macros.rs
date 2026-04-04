@@ -1,4 +1,4 @@
-// @swt-disable max-repetition
+// @swt-disable max-repetition max-depth
 
 /// Defines a top-level command logic.
 #[macro_export]
@@ -30,14 +30,17 @@ macro_rules! subcmd {
 #[macro_export]
 macro_rules! auto_dispatch {
     ($target:expr, $enum_ty:ty, { $($variant:ident $(($arg:ident))?),* $(,)? }) => {
-        match $target {
-            $(
-                <$enum_ty>::$variant $(($arg))? => {
-                    paste::paste! {
-                        <$enum_ty>::[< run_ $variant:snake >]($($arg)?).await
-                    }
-                },
-            )*
+        {
+            use $enum_ty::*;
+            match $target {
+                $(
+                    $variant $(($arg))? => {
+                        paste::paste! {
+                            <$enum_ty>::[< run_ $variant:snake >]($($arg)?).await
+                        }
+                    },
+                )*
+            }
         }
     };
 }
