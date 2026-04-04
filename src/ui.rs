@@ -1,12 +1,39 @@
 //! User Interface and Interaction module.
-//! Handles terminal output and interactive prompts.
 #![allow(dead_code)]
 
 use crate::errors::Result;
-use console::Style;
-use inquire::{Confirm, Text};
+use console::{Style, style};
+use inquire::{
+    Confirm, Select, Text,
+    ui::{Attributes, Color, RenderConfig, StyleSheet, Styled},
+};
+use std::fmt::Display;
 
-/// Internal macro to handle stylized printing.
+const BRAND_ORANGE: Style = Style::new().color256(208);
+
+fn get_render_config() -> RenderConfig<'static> {
+    RenderConfig {
+        help_message: StyleSheet::new()
+            .with_fg(Color::LightYellow)
+            .with_attr(Attributes::ITALIC),
+
+        prompt_prefix: Styled::new("?").with_fg(Color::LightRed),
+
+        answered_prompt_prefix: Styled::new("✓").with_fg(Color::LightYellow),
+
+        highlighted_option_prefix: Styled::new("> ").with_fg(Color::LightRed),
+
+        selected_option: Some(StyleSheet::new().with_fg(Color::LightYellow)),
+
+        answer: StyleSheet::new()
+            .with_fg(Color::LightRed)
+            .with_attr(Attributes::BOLD),
+
+        ..RenderConfig::default()
+    }
+}
+
+/// Prints a stylized step with a custom icon and color.
 #[macro_export]
 macro_rules! log_step {
     ($icon:expr, $color:ident, $($arg:tt)*) => {
@@ -14,114 +41,57 @@ macro_rules! log_step {
     };
 }
 
-/// Prints a success message with a green checkmark icon.
-///
-/// # Arguments
-///
-/// * `msg` - The success message string to display.
-///
-/// # Examples
-///
-/// ```rust
-/// // Assuming ui module is in scope and imported correctly
-/// // ui::success("Operation completed successfully!");
-/// ```
 pub fn success(msg: &str) {
-    println!("[+] {}", Style::new().green().bold().apply_to(msg));
+    println!("{} {}", style("[+]").green().bold(), msg);
 }
 
-/// Prints an informational message with a cyan info icon.
-///
-/// # Arguments
-///
-/// * `msg` - The informational message string to display.
-///
-/// # Examples
-///
-/// ```rust
-/// // Assuming ui module is in scope and imported correctly
-/// // ui::info("Processing data...");
-/// ```
 pub fn info(msg: &str) {
-    println!("[i] {}", Style::new().cyan().apply_to(msg));
+    println!("{} {}", style("[i]").yellow().bold(), msg);
 }
 
-/// Prints a warning message with a yellow exclamation mark icon.
-///
-/// # Arguments
-///
-/// * `msg` - The warning message string to display.
-///
-/// # Examples
-///
-/// ```rust
-/// // Assuming ui module is in scope and imported correctly
-/// // ui::warn("Configuration file not found, using defaults.");
-/// ```
 pub fn warn(msg: &str) {
-    println!("[!] {}", Style::new().yellow().apply_to(msg));
+    println!("{} {}", BRAND_ORANGE.bold().apply_to("[!]"), msg);
 }
 
-/// Prompts the user for a confirmation with a default value.
-///
-/// # Arguments
-///
-/// * `msg` - The confirmation question string to display.
-/// * `default` - The default boolean value (true or false) for the prompt.
-///
-/// # Returns
-///
-/// A `Result` containing the user's boolean answer, or an `inquire::InquireError` if
-/// the prompt fails.
-///
-/// # Examples
-///
-/// ```rust
-/// // Assuming ui module is in scope and imported correctly
-/// // let confirm = ui::prompt_confirm("Are you sure?", true)?;
-/// ```
+pub fn inquire_text(msg: &str) -> String {
+    BRAND_ORANGE.apply_to(msg).to_string()
+}
+
+pub fn prompt_opt<T: Display>(msg: &str, options: Vec<T>) -> Result<T> {
+    Ok(Select::new(&inquire_text(msg), options)
+        .with_render_config(get_render_config())
+        .prompt()?)
+}
+
 pub fn prompt_confirm(msg: &str, default: bool) -> Result<bool> {
-    Ok(Confirm::new(msg).with_default(default).prompt()?)
+    Ok(Confirm::new(&inquire_text(msg))
+        .with_default(default)
+        .with_render_config(get_render_config())
+        .prompt()?)
 }
 
-/// Prompts the user for text input with a default value.
-///
-/// # Arguments
-///
-/// * `msg` - The prompt question string to display.
-/// * `default` - The default string value to pre-fill the input with.
-///
-/// # Returns
-///
-/// A `Result` containing the user's input string, or an `inquire::InquireError` if
-/// the prompt fails.
-///
-/// # Examples
-///
-/// ```rust
-/// // Assuming ui module is in scope and imported correctly
-/// // let name = ui::prompt_text("Enter your name:", "Guest")?;
-/// ```
-pub fn prompt_text(msg: &str, default: &str) -> Result<String> {
-    Ok(Text::new(msg).with_default(default).prompt()?)
+pub fn prompt_def(msg: &str, default: &str) -> Result<String> {
+    Ok(Text::new(&inquire_text(msg))
+        .with_default(default)
+        .with_render_config(get_render_config())
+        .prompt()?)
 }
 
-/// Prints the ASCII banner for the CLI.
-///
-/// This function displays the project's logo and a tagline.
+pub fn prompt(msg: &str) -> Result<String> {
+    Ok(Text::new(&inquire_text(msg))
+        .with_render_config(get_render_config())
+        .prompt()?)
+}
+
 pub fn print_banner() {
-    let orange = Style::new().color256(208);
     let banner = r"
     ____       _____                      
    / __ \___  / __(_)___  ___  _______  __
   / /_/ / _ \/ /_/ / __ \/ _ \/ ___/ / / /
  / _, _/  __/ __/ / / / /  __/ /  / /_/ / 
 /_/ |_|\___/_/ /_/_/ /_/\___/_/   \__, /  
-                                 /____/  
-    ";
-    println!("{}", orange.apply_to(banner));
-    println!(
-        "🦀 Refining Rust into universal artifacts.
-"
-    );
+                                 /____/  ";
+
+    println!("{}", BRAND_ORANGE.apply_to(banner));
+    println!("🦀 Refining Rust into universal artifacts.\n");
 }
