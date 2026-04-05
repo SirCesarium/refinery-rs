@@ -1,10 +1,15 @@
 #![allow(dead_code)]
+// @swt-disable max-depth
 
 use clap::ValueEnum;
 use miette::{Result, miette};
 use serde::{Deserialize, Serialize};
+use std::path::Path;
+use tokio::fs;
+use toml_edit::{de, ser::to_string};
 
 #[derive(Debug, Clone, Copy, ValueEnum, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
 pub enum Os {
     Linux,
     Windows,
@@ -12,6 +17,7 @@ pub enum Os {
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
 pub enum Arch {
     #[value(name = "x64")]
     X64,
@@ -28,30 +34,27 @@ pub struct Target {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct RefineryConfig {
-    pub project: Project,
-    pub build: Build,
-    pub publish: Option<Publish>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Project {
+pub struct Artifact {
     pub name: String,
-    pub r#type: ProjectType,
+    pub targets: Vec<Target>,
     #[serde(default)]
     pub features: Vec<String>,
+    #[serde(default = "default_true")]
+    pub default_features: bool,
+}
+
+const fn default_true() -> bool {
+    true
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum ProjectType {
-    Bin,
-    Lib,
+pub struct RefineryConfig {
+    pub build: Build,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Build {
-    pub targets: Vec<Target>,
+    pub artifacts: Vec<Artifact>,
 
     #[serde(default)]
     pub library: LibraryFormats,
@@ -67,30 +70,6 @@ pub struct LibraryFormats {
     pub headers: bool,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Publish {
-    pub crates_io: Option<CratesIoConfig>,
-    pub ghcr: Option<GhcrConfig>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct CratesIoConfig {
-    pub enabled: bool,
-    #[serde(default)]
-    pub allow_dirty: bool,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct GhcrConfig {
-    pub image_name: String,
-    #[serde(default = "default_dockerfile")]
-    pub dockerfile: String,
-}
-
-fn default_dockerfile() -> String {
-    "./Dockerfile".to_string()
-}
-
 impl Target {
     pub fn to_triple(&self) -> Result<String> {
         let triple = match (self.os, self.arch) {
@@ -100,8 +79,8 @@ impl Target {
             (Os::Linux, Arch::Arm64) => "aarch64-unknown-linux-musl",
 
             // --- WINDOWS ---
-            (Os::Windows, Arch::X64) => "x86_64-pc-windows-msvc",
-            (Os::Windows, Arch::X86) => "i686-pc-windows-msvc",
+            (Os::Windows, Arch::X64) => "x86_64-pc-windows-gnu",
+            (Os::Windows, Arch::X86) => "i686-pc-windows-gnu",
             (Os::Windows, Arch::Arm64) => "aarch64-pc-windows-msvc",
 
             // --- MACOS ---
@@ -115,5 +94,69 @@ impl Target {
         };
 
         Ok(triple.to_string())
+    }
+}
+
+impl RefineryConfig {
+    pub async fn init() -> Result<()> {
+        let path = Path::new("refinery.toml");
+
+        if path.exists() {
+            return Err(miette!("refinery.toml already exists."));
+        }
+
+        let config = Self::default();
+
+        let toml_string =
+            to_string(&config).map_err(|e| miette!("Failed to serialize default config: {}", e))?;
+
+        fs::write(path, toml_string)
+            .await
+            .map_err(|e| miette!("Failed to create refinery.toml: {}", e))?;
+
+        Ok(())
+    }
+
+    pub async fn load() -> Result<Self> {
+        let path = Path::new("refinery.toml");
+        if !path.exists() {
+            return Err(miette!(
+                "refinery.toml not found. Run 'refinery init' first."
+            ));
+        }
+
+        let content = fs::read_to_string(path)
+            .await
+            .map_err(|e| miette!("Failed to read refinery.toml: {}", e))?;
+
+        let config: Self =
+            de::from_str(&content).map_err(|e| miette!("Invalid refinery.toml format: {}", e))?;
+
+        Ok(config)
+    }
+}
+
+impl Default for RefineryConfig {
+    fn default() -> Self {
+        Self {
+            build: Build {
+                artifacts: vec![Artifact {
+                    name: "my-project".to_string(),
+                    targets: vec![
+                        Target {
+                            os: Os::Linux,
+                            arch: Arch::X64,
+                        },
+                        Target {
+                            os: Os::Windows,
+                            arch: Arch::X64,
+                        },
+                    ],
+                    features: vec![],
+                    default_features: true,
+                }],
+                library: LibraryFormats::default(),
+            },
+        }
     }
 }
