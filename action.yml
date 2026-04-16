@@ -102,7 +102,7 @@ runs:
         macos_x86: ${{ inputs.macos_x86 }}
 
     - name: Auto-Release 🏷️
-      uses: softprops/action-gh-release@v2
+      uses: softprops/action-gh-release@v3
       with:
         token: ${{ inputs.github_token }}
         tag_name: ${{ github.ref_name }}
