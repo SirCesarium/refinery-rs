@@ -4,21 +4,51 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-clap = { version = "4.6.0", features = ["derive"] }
-console = "0.16.3"
-futures = "0.3.32"
-indicatif = "0.18.4"
-inquire = "0.9.4"
-miette = { version = "7.6.0", features = ["fancy"] }
-paste = "1.0.15"
-reqwest = { version = "0.13.2", default-features = false, features = ["rustls-no-provider", "json"] }
-semver = "1.0.28"
-serde = { version = "1.0.228", features = ["derive"] }
-serde_yaml = "0.9.34"
-tempfile = "3.27.0"
-thiserror = "2.0.18"
-tokio = { version = "1.51.1", features = ["full"] }
-toml_edit = { version = "0.25.11", features = ["serde"] }
+# Core
+anyhow = "1.0"
+clap = { version = "4.6", features = ["derive"] }
+futures = "0.3"
+serde = { version = "1.0", features = ["derive"] }
+tokio = { version = "1.51", features = ["full"] }
+
+# CLI UI
+owo-colors = { version = "4.0", optional = true }
+indicatif = { version = "0.18", optional = true }
+inquire = { version = "0.9", optional = true }
+
+# Logic
+reqwest = { version = "0.13", default-features = false, features = [
+    "rustls-no-provider",
+    "json",
+] }
+semver = { version = "1.0", optional = true }
+serde_yaml = "0.9"
+tempfile = "3.27"
+thiserror = "2.0"
+toml_edit = { version = "0.25", features = ["serde"] }
+
+[features]
+default = ["pretty-cli", "semver", "libs", "installers", "ci"]
+full = ["pretty-cli", "semver", "libs", "nerd-fonts", "installers", "ci"]
+
+# UI Features
+pretty-cli = ["inquire", "dep:owo-colors", "dep:indicatif"]
+nerd-fonts = []
+inquire = ["dep:inquire"]
+
+# Versioning
+semver = ["dep:semver"]
+
+# Libraries
+libs = ["dyn-libs", "static-libs"]
+dyn-libs = []
+static-libs = []
+
+# Packaging
+installers = []
+
+# CI
+ci = []
 
 [[bin]]
 name = "refinery"
