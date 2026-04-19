@@ -1,12 +1,12 @@
 //! Refinery-RS
 
 #![deny(
+    clippy::all,
     clippy::panic,
     clippy::unwrap_used,
     clippy::expect_used,
     clippy::pedantic,
-    clippy::absolute_paths,
-    missing_docs
+    clippy::absolute_paths
 )]
 
 mod commands;
