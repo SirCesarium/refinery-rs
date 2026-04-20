@@ -25,6 +25,9 @@ pub enum WorkflowEvents {
         #[serde(skip_serializing_if = "Option::is_none")]
         branches: Option<Vec<String>>,
     },
+    Release {
+        types: Vec<String>,
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -46,7 +49,7 @@ pub struct Strategy {
     pub matrix: HashMap<String, Vec<String>>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct Step {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
