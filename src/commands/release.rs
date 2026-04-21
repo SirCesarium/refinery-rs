@@ -38,8 +38,8 @@ pub enum ReleaseAction {
 #[cfg(feature = "semver")]
 #[derive(Args, Debug)]
 pub struct BumpArgs {
-    /// Pre-release candidate number (e.g. 1 for -rc1)
-    #[arg(long, short = 'c')]
+    /// Pre-release candidate (auto-increments if already on rc, else starts at 1)
+    #[arg(long, short = 'c', num_args = 0..=1, default_missing_value = "0")]
     pub candidate: Option<u64>,
 }
 
@@ -101,7 +101,12 @@ fn bump_release(action: &ReleaseAction) -> Result<()> {
     }
 
     if let Some(c) = candidate {
-        next_version.pre = Prerelease::new(&format!("rc{c}"))?;
+        let rc_num = if c == 0 {
+            parse_rc_number(&current_version.pre)
+        } else {
+            c
+        };
+        next_version.pre = Prerelease::new(&format!("rc{rc_num}"))?;
     } else {
         next_version.pre = Prerelease::EMPTY;
     }
@@ -129,6 +134,17 @@ fn bump_release(action: &ReleaseAction) -> Result<()> {
     success(&format!("Created and pushed tag {tag}"));
 
     Ok(())
+}
+
+#[cfg(feature = "semver")]
+fn parse_rc_number(pre: &Prerelease) -> u64 {
+    let s = pre.as_str();
+    if let Some(stripped) = s.strip_prefix("rc")
+        && let Ok(n) = stripped.parse::<u64>()
+    {
+        return n + 1;
+    }
+    1
 }
 
 #[cfg(feature = "semver")]
