@@ -52,7 +52,7 @@ pub async fn handle_command(cli: Cli) -> Result<()> {
         Commands::Build(args) => build::run(&args),
         Commands::Forge(args) => forge::run(&args),
         #[cfg(all(feature = "ci", feature = "pretty-cli"))]
-        Commands::Setup(args) => setup::run(&args).await,
+        Commands::Setup(args) => setup::run(&args),
         #[cfg(all(feature = "semver", feature = "pretty-cli"))]
         Commands::Release(args) => release::run(&args),
         Commands::Config(args) => config::run(&args),

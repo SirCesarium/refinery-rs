@@ -2,14 +2,11 @@ use anyhow::Result;
 use clap::Args;
 use refinery_rs::core::schema::{LibType, RefineryConfig, prepare_cargo_lib};
 use refinery_rs::core::workflow::Workflow;
-use refinery_rs::core::workflow::actions;
-use refinery_rs::ui::prompts::{self, installers};
+use refinery_rs::ui::prompts::{configure_libraries, install, installers};
 use refinery_rs::ui::{prompt_confirm, success, warn};
-use refinery_rs::{log_step, prompt_multi, spinner};
+use refinery_rs::{log_step, prompt, prompt_multi};
 use std::fs;
-use std::io::Write;
 use std::path::Path;
-use std::time::Duration;
 
 #[derive(Args, Debug)]
 pub struct SetupArgs {
@@ -17,11 +14,12 @@ pub struct SetupArgs {
     pub force: bool,
 }
 
-pub async fn run(args: &SetupArgs) -> Result<()> {
+pub fn run(args: &SetupArgs) -> Result<()> {
     let mut config = RefineryConfig::load("refinery.toml")?;
 
     let options = vec![
-        "CI/CD Workflow".to_string(),
+        "Pipeline (refinery.yml)".to_string(),
+        "Quality Gate (ci.yml)".to_string(),
         "Installers (WiX, deb, rpm)".to_string(),
         "Library Setup".to_string(),
     ];
@@ -29,7 +27,8 @@ pub async fn run(args: &SetupArgs) -> Result<()> {
 
     for selection in selections {
         match selection.as_str() {
-            "CI/CD Workflow" => setup_ci(&config).await?,
+            "Pipeline (refinery.yml)" => setup_pipeline(&config)?,
+            "Quality Gate (ci.yml)" => setup_quality_gate()?,
             "Installers (WiX, deb, rpm)" => installers::setup_installers(&config, args.force)?,
             "Library Setup" => setup_lib(&mut config)?,
             _ => unreachable!(),
@@ -39,8 +38,13 @@ pub async fn run(args: &SetupArgs) -> Result<()> {
     Ok(())
 }
 
-async fn setup_ci(config: &RefineryConfig) -> Result<()> {
-    log_step!("󰄬", "Check", Green, "Configuring unified CI/CD workflow...");
+fn setup_pipeline(config: &RefineryConfig) -> Result<()> {
+    log_step!(
+        "󰄬",
+        "Check",
+        Green,
+        "Configuring unified refinery pipeline..."
+    );
     let workflow = Workflow::primary_workflow(config)?;
     let yaml = workflow.to_yaml()?;
 
@@ -49,56 +53,83 @@ async fn setup_ci(config: &RefineryConfig) -> Result<()> {
         fs::create_dir_all(parent)?;
     }
     fs::write(path, yaml)?;
-    success("Unified CI/CD workflow generated at .github/workflows/refinery.yml");
-
-    if prompt_confirm("Setup sweet testing framework?", true)? {
-        setup_sweet().await?;
-    }
-
+    success("Unified pipeline generated at .github/workflows/refinery.yml");
     Ok(())
 }
 
-async fn setup_sweet() -> Result<()> {
-    let version = actions::SWEET_DEFAULT_VERSION;
-    let sp = spinner!(format!("Downloading sweet {version}..."));
+fn setup_quality_gate() -> Result<()> {
+    println!("\n󰒓 CI Quality Gate Setup");
+    println!("  - Sweet: Maintainability analysis (nesting, length, duplication)");
+    println!("  - Format: Ensures code follows rustfmt standards");
+    println!("  - Clippy: Lints for common mistakes and idiomatic improvements");
+    println!("  - Tests: Executes your full test suite\n");
 
-    let os = prompts::get_current_os();
-    let arch = prompts::get_current_arch();
+    let options = vec![
+        "Sweet (Maintainability)".into(),
+        "Format (rustfmt)".into(),
+        "Clippy (Lints)".into(),
+        "Tests (cargo test)".into(),
+    ];
+    let checks: Vec<String> = prompt_multi!("Select checks to include in ci.yml:", options)?;
 
-    let ext = if os.len() == 7 { ".exe" } else { "" };
-    let url = format!(
-        "{}/releases/download/{version}/sweet-{os}-{arch}{ext}",
-        actions::SWEET_REPO
+    if checks.is_empty() {
+        warn("No checks selected. Quality Gate skipped.");
+        return Ok(());
+    }
+
+    let mut steps = vec![
+        "      - uses: actions/checkout@v6".to_string(),
+        "      - uses: dtolnay/rust-toolchain@stable\n        with:\n          components: clippy, rustfmt".to_string(),
+        "      - uses: Swatinem/rust-cache@v2".to_string(),
+    ];
+
+    if checks.iter().any(|c| c.contains("Sweet")) {
+        steps.push("      - name: Sweet Analysis\n        run: curl -L https://github.com/SirCesarium/sweet/releases/latest/download/sweet-linux-x86_64 -o swt && chmod +x swt && ./swt".to_string());
+    }
+
+    if checks.iter().any(|c| c.contains("Format")) {
+        steps.push("      - name: Check Format\n        run: cargo fmt --check".to_string());
+    }
+
+    if checks.iter().any(|c| c.contains("Clippy")) {
+        let flags: String = prompt!("Clippy flags (default: -- -D warnings):")?;
+        let flags = if flags.trim().is_empty() {
+            "-- -D warnings"
+        } else {
+            flags.trim()
+        };
+        steps.push(format!(
+            "      - name: Clippy\n        run: cargo clippy {flags}"
+        ));
+    }
+
+    if checks.iter().any(|c| c.contains("Tests")) {
+        steps.push("      - name: Run Tests\n        run: cargo test".to_string());
+    }
+
+    let yaml = format!(
+        "name: Quality Gate
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+jobs:
+  check:
+    name: Quality & Testing
+    runs-on: ubuntu-latest
+    steps:
+{}
+",
+        steps.join("\n")
     );
 
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(300))
-        .build()?;
-
-    let response = client.get(&url).send().await?;
-
-    if !response.status().is_success() {
-        sp.finish_and_clear();
-        anyhow::bail!("Failed to download sweet: {}", response.status());
+    let path = Path::new(".github/workflows/ci.yml");
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
     }
-
-    let bytes = response.bytes().await?;
-    let bin_path = if os.len() == 7 { "sweet.exe" } else { "sweet" };
-
-    let mut file = fs::File::create(bin_path)?;
-    file.write_all(&bytes)?;
-
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let mut perms = fs::metadata(bin_path)?.permissions();
-        perms.set_mode(0o755);
-        fs::set_permissions(bin_path, perms)?;
-    }
-
-    sp.finish_with_message(format!("Sweet {version} test runner configured."));
-    let msg = format!("Sweet {version} setup complete for {os}-{arch}.");
-    success(&msg);
+    fs::write(path, yaml)?;
+    success("Custom Quality Gate generated at .github/workflows/ci.yml");
     Ok(())
 }
 
@@ -107,7 +138,7 @@ fn setup_lib(config: &mut RefineryConfig) -> Result<()> {
         warn("No libraries defined in refinery.toml.");
         if prompt_confirm("Add a library configuration now?", true)? {
             let default_name = RefineryConfig::get_default_project_name();
-            prompts::configure_libraries(config, &default_name)?;
+            configure_libraries(config, &default_name)?;
             config.save("refinery.toml")?;
         } else {
             return Ok(());
@@ -146,7 +177,7 @@ pub extern "C" fn hello_refinery() {
         }
 
         if lib.headers {
-            prompts::check_and_install("cbindgen", "cbindgen")?;
+            install::check_and_install("cbindgen", "cbindgen")?;
             success("cbindgen ready for header generation.");
         }
     }
