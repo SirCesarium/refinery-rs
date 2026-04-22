@@ -98,11 +98,8 @@ impl Workflow {
             name: name.to_string(),
             on: WorkflowEvents {
                 push: Some(PushEvent {
-                    branches: Some(vec!["main".into()]),
+                    branches: None,
                     tags: Some(vec!["v*".into()]),
-                }),
-                pull_request: Some(PullRequestEvent {
-                    branches: Some(vec!["main".into()]),
                 }),
                 ..Default::default()
             },
@@ -212,7 +209,7 @@ impl Workflow {
                 name: "Release Artifacts".into(),
                 runs_on: "ubuntu-latest".into(),
                 needs: Some(vec!["build".into()]),
-                condition: Some("startsWith(github.ref, 'refs/tags/v')".into()),
+                condition: None,
                 strategy: None,
                 steps: release_steps,
             },
