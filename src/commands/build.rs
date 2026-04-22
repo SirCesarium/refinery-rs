@@ -152,7 +152,11 @@ fn collect_targets_info(config: &RefineryConfig) -> Result<Vec<TargetInfo>> {
 fn build_target(config: &RefineryConfig, info: &TargetInfo, release: bool) -> Result<()> {
     setup_toolchain(&info.triple);
 
-    let mut cmd = if info.triple.contains("musl") {
+    // Use cross for any Linux cross-compilation (not native x86_64-gnu)
+    let use_cross = info.triple.contains("linux")
+        && (info.triple.contains("musl") || !info.triple.starts_with("x86_64"));
+
+    let mut cmd = if use_cross {
         let mut c = Command::new("cross");
         let _ = c.arg("build");
         c
@@ -337,7 +341,6 @@ fn run_archive_zip(config: &RefineryConfig, info: &TargetInfo, release: bool) ->
     let base_path = format!("target/{}/{}", info.triple, profile);
     let archive_name = format!("{}.zip", info.triple);
 
-    // Use tar.exe on Windows as zip is often missing, use zip on Unix
     let mut cmd = if cfg!(windows) {
         let mut c = Command::new("tar");
         c.arg("-a")

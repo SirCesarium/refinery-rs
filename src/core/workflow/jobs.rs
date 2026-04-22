@@ -145,12 +145,6 @@ fn create_base_steps() -> Vec<Step> {
         create_simple_step("Checkout", Some(actions::CHECKOUT.into()), None),
         create_toolchain_step(),
         create_simple_step("Rust Cache", Some(actions::RUST_CACHE.into()), None),
-        create_linux_dep_step("i686-unknown-linux-gnu", "gcc-multilib libc6-dev-i386"),
-        create_linux_dep_step(
-            "aarch64-unknown-linux-gnu",
-            "gcc-aarch64-linux-gnu libc6-dev-arm64-cross",
-        ),
-        create_linker_config_step(),
         create_packagers_step(),
         create_simple_step(
             "Install Refinery",
@@ -179,18 +173,6 @@ fn create_simple_step(name: &str, uses: Option<String>, run: Option<String>) -> 
             None
         },
         run,
-        ..Default::default()
-    }
-}
-
-fn create_linux_dep_step(target: &str, pkgs: &str) -> Step {
-    Step {
-        name: Some(format!("Deps: {target}")),
-        condition: Some(format!("matrix.target == '{target}'")),
-        run: Some(format!(
-            "sudo apt-get update && sudo apt-get install -y {pkgs}"
-        )),
-        shell: Some("bash".into()),
         ..Default::default()
     }
 }
@@ -230,15 +212,6 @@ fn create_cross_step() -> Step {
         condition: Some("${{ matrix.use_cross == 'true' }}".into()),
         run: Some("curl -L https://github.com/cross-rs/cross/releases/latest/download/cross-x86_64-unknown-linux-musl.tar.gz | tar xz -C /usr/local/bin".into()),
         shell: Some("bash".into()),
-        ..Default::default()
-    }
-}
-
-fn create_linker_config_step() -> Step {
-    Step {
-        name: Some("Linker Config".into()),
-        shell: Some("bash".into()),
-        run: Some("if [ \"${{ matrix.target }}\" = \"aarch64-unknown-linux-gnu\" ]; then echo \"CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc\" >> $GITHUB_ENV; fi\nif [ \"${{ matrix.target }}\" = \"i686-unknown-linux-gnu\" ]; then echo \"LIBRARY_PATH=/usr/lib32\" >> $GITHUB_ENV; echo \"LD_LIBRARY_PATH=/usr/lib32\" >> $GITHUB_ENV; fi".into()),
         ..Default::default()
     }
 }
