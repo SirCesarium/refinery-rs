@@ -2,6 +2,7 @@ use clap::Args;
 use refinery_rs::core::schema::{LibC, OS, RefineryConfig, TargetMatrix};
 use refinery_rs::errors::{RefineryError, Result};
 use std::fs;
+use std::path::Path;
 use std::process::{Command, Stdio};
 use toml_edit::DocumentMut;
 
@@ -30,10 +31,10 @@ pub fn run(args: &BuildArgs) -> anyhow::Result<()> {
             .into_iter()
             .find(|t| t.triple == *target_triple)
             .ok_or_else(|| anyhow::anyhow!("Target {target_triple} not found in configuration"))?;
-        build_target(&info, args.release)?;
+        build_target(&config, &info, args.release)?;
     } else {
         for info in targets {
-            build_target(&info, args.release)?;
+            build_target(&config, &info, args.release)?;
         }
     }
 
@@ -91,7 +92,7 @@ fn collect_targets_info(config: &RefineryConfig) -> Result<Vec<TargetInfo>> {
     Ok(infos)
 }
 
-fn build_target(info: &TargetInfo, release: bool) -> Result<()> {
+fn build_target(config: &RefineryConfig, info: &TargetInfo, release: bool) -> Result<()> {
     setup_toolchain(&info.triple)?;
 
     let mut cmd = if info.triple.contains("musl") {
@@ -122,7 +123,7 @@ fn build_target(info: &TargetInfo, release: bool) -> Result<()> {
     // Process packaging with validation
     for pkg_format in &info.matrix.pkg {
         validate_packaging_metadata(pkg_format)?;
-        package_target(info, pkg_format, release)?;
+        package_target(config, info, pkg_format, release)?;
     }
 
     Ok(())
@@ -164,20 +165,26 @@ fn validate_packaging_metadata(format: &str) -> Result<()> {
     Ok(())
 }
 
-fn package_target(info: &TargetInfo, format: &str, release: bool) -> Result<()> {
+fn package_target(
+    config: &RefineryConfig,
+    info: &TargetInfo,
+    format: &str,
+    release: bool,
+) -> Result<()> {
     match format {
-        "deb" => run_cargo_deb(info, release),
-        "msi" => run_cargo_wix(info, release),
-        "rpm" => run_cargo_generate_rpm(info, release),
+        "deb" => run_cargo_deb(info),
+        "msi" => run_cargo_wix(info),
+        "rpm" => run_cargo_generate_rpm(info),
+        "tar.gz" => run_archive_tar(config, info, release),
+        "zip" => run_archive_zip(config, info, release),
         _ => Ok(()),
     }
 }
 
-fn run_cargo_deb(info: &TargetInfo, release: bool) -> Result<()> {
+fn run_cargo_deb(info: &TargetInfo) -> Result<()> {
     let mut cmd = Command::new("cargo");
     let _ = cmd.arg("deb");
     let _ = cmd.arg("--target").arg(&info.triple);
-
     let _ = cmd.arg("--no-build");
     let _ = cmd.arg("--no-strip");
 
@@ -188,11 +195,10 @@ fn run_cargo_deb(info: &TargetInfo, release: bool) -> Result<()> {
             info.triple
         )));
     }
-    let _ = release;
     Ok(())
 }
 
-fn run_cargo_wix(info: &TargetInfo, release: bool) -> Result<()> {
+fn run_cargo_wix(info: &TargetInfo) -> Result<()> {
     let mut cmd = Command::new("cargo");
     let _ = cmd.arg("wix").arg("--target").arg(&info.triple);
 
@@ -203,11 +209,10 @@ fn run_cargo_wix(info: &TargetInfo, release: bool) -> Result<()> {
             info.triple
         )));
     }
-    let _ = release;
     Ok(())
 }
 
-fn run_cargo_generate_rpm(info: &TargetInfo, release: bool) -> Result<()> {
+fn run_cargo_generate_rpm(info: &TargetInfo) -> Result<()> {
     let mut cmd = Command::new("cargo");
     let _ = cmd.arg("generate-rpm").arg("--target").arg(&info.triple);
     let status = cmd.status().map_err(RefineryError::Io)?;
@@ -217,7 +222,67 @@ fn run_cargo_generate_rpm(info: &TargetInfo, release: bool) -> Result<()> {
             info.triple
         )));
     }
-    let _ = release;
+    Ok(())
+}
+
+fn run_archive_tar(config: &RefineryConfig, info: &TargetInfo, release: bool) -> Result<()> {
+    let profile = if release { "release" } else { "debug" };
+    let base_path = format!("target/{}/{}", info.triple, profile);
+    let archive_name = format!("target/{}/{}.tar.gz", info.triple, info.triple);
+
+    let mut args = vec!["-czf", &archive_name, "-C", &base_path];
+
+    // Add binaries
+    let mut binaries = Vec::new();
+    for bin in &config.binaries {
+        if info.matrix.artifacts.contains(&bin.name) {
+            binaries.push(bin.name.clone());
+        }
+    }
+    for b in &binaries {
+        args.push(b);
+    }
+
+    let status = Command::new("tar")
+        .args(&args)
+        .status()
+        .map_err(RefineryError::Io)?;
+
+    if !status.success() {
+        return Err(RefineryError::Generic(anyhow::anyhow!(
+            "Failed to create .tar.gz for target: {}",
+            info.triple
+        )));
+    }
+    Ok(())
+}
+
+fn run_archive_zip(config: &RefineryConfig, info: &TargetInfo, release: bool) -> Result<()> {
+    let profile = if release { "release" } else { "debug" };
+    let base_path = format!("target/{}/{}", info.triple, profile);
+    let abs_archive = fs::canonicalize(Path::new("target"))
+        .unwrap_or_else(|_| "target".into())
+        .join(&info.triple)
+        .join(format!("{}.zip", info.triple));
+
+    let mut cmd = Command::new("zip");
+    let _ = cmd.arg("-j").arg(abs_archive);
+
+    for bin in &config.binaries {
+        if info.matrix.artifacts.contains(&bin.name) {
+            let bin_path = format!("{}/{}.exe", base_path, bin.name);
+            let _ = cmd.arg(bin_path);
+        }
+    }
+
+    let status = cmd.status().map_err(RefineryError::Io)?;
+
+    if !status.success() {
+        return Err(RefineryError::Generic(anyhow::anyhow!(
+            "Failed to create .zip for target: {}",
+            info.triple
+        )));
+    }
     Ok(())
 }
 

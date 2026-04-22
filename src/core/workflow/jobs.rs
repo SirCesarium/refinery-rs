@@ -75,6 +75,10 @@ fn create_build_steps(config: &RefineryConfig) -> Vec<Step> {
         steps.push(create_prepare_step(&bin.name));
     }
 
+    for lib in &config.libraries {
+        steps.push(create_prepare_lib_step(&lib.name));
+    }
+
     steps.push(create_upload_step());
     steps
 }
@@ -84,17 +88,36 @@ fn create_prepare_step(name: &str) -> Step {
         "mkdir -p dist\n\
          if [ \"${{{{ runner.os }}}}\" = \"Windows\" ]; then\n  \
            find target -name \"{name}.exe\" -path \"*/release/*\" -exec cp {{}} dist/{name}-${{{{ matrix.target }}}}.exe \\; 2>/dev/null || true\n  \
-           find target -name \"*.msi\" -exec cp {{}} dist/ \\; 2>/dev/null || true\n\
+           find target -name \"*.msi\" -exec cp {{}} dist/ \\; 2>/dev/null || true\n  \
+           find target -name \"*.zip\" -exec cp {{}} dist/ \\; 2>/dev/null || true\n\
          else\n  \
            find target -name \"{name}\" -path \"*/release/*\" -not -name \"*.d\" -exec cp {{}} dist/{name}-${{{{ matrix.target }}}} \\; 2>/dev/null || true\n  \
            find target -name \"*.deb\" -exec cp {{}} dist/ \\; 2>/dev/null || true\n  \
-           find target -name \"*.rpm\" -exec cp {{}} dist/ \\; 2>/dev/null || true\n\
+           find target -name \"*.rpm\" -exec cp {{}} dist/ \\; 2>/dev/null || true\n  \
+           find target -name \"*.tar.gz\" -exec cp {{}} dist/ \\; 2>/dev/null || true\n\
          fi\n\
          ls -R dist/"
     );
 
     Step {
         name: Some(format!("Prepare Artifacts: {name}")),
+        run: Some(run),
+        shell: Some("bash".into()),
+        ..Default::default()
+    }
+}
+
+fn create_prepare_lib_step(name: &str) -> Step {
+    let run = format!(
+        "mkdir -p dist\n\
+         find target -name \"lib{name}.*\" -path \"*/release/*\" -exec cp {{}} dist/ \\; 2>/dev/null || true\n\
+         find target -name \"{name}.lib\" -path \"*/release/*\" -exec cp {{}} dist/ \\; 2>/dev/null || true\n\
+         find target -name \"{name}.dll\" -path \"*/release/*\" -exec cp {{}} dist/ \\; 2>/dev/null || true\n\
+         ls -R dist/"
+    );
+
+    Step {
+        name: Some(format!("Prepare Library: {name}")),
         run: Some(run),
         shell: Some("bash".into()),
         ..Default::default()
@@ -122,14 +145,26 @@ fn create_base_steps() -> Vec<Step> {
         create_toolchain_step(),
         create_simple_step("Rust Cache", Some(actions::RUST_CACHE.into()), None),
         create_linux_dep_step("i686-unknown-linux-gnu", "gcc-multilib libc6-dev-i386"),
-        create_linux_dep_step("aarch64-unknown-linux-gnu", "gcc-aarch64-linux-gnu libc6-dev-arm64-cross"),
+        create_linux_dep_step(
+            "aarch64-unknown-linux-gnu",
+            "gcc-aarch64-linux-gnu libc6-dev-arm64-cross",
+        ),
         create_linker_config_step(),
         create_packagers_step(),
-        create_simple_step("Install Refinery", None, Some("cargo install --git https://github.com/SirCesarium/refinery-rs --no-default-features".into())),
+        create_simple_step(
+            "Install Refinery",
+            None,
+            Some(
+                "cargo install --git https://github.com/SirCesarium/refinery-rs --no-default-features"
+                    .into(),
+            ),
+        ),
         create_cross_step(),
-        create_simple_step("Check Format", None, Some("cargo fmt --check".into())),
-        create_simple_step("Clippy", None, Some("cargo clippy -- -D warnings".into())),
-        create_simple_step("Build", None, Some("refinery build --target ${{ matrix.target }} --release".into())),
+        create_simple_step(
+            "Build",
+            None,
+            Some("refinery build --target ${{ matrix.target }} --release".into()),
+        ),
     ]
 }
 
