@@ -1,7 +1,7 @@
 use crate::errors::{RefineryError, Result};
-use toml_edit::{DocumentMut, Item, Table, Value, value};
+use toml_edit::{Array, DocumentMut, Item, Table, Value, value};
 
-/// Metadata extracted from Cargo.toml
+/// Metadata extracted from `Cargo.toml`
 #[derive(Debug, Default, Clone)]
 pub struct CargoMetadata {
     pub name: String,
@@ -11,7 +11,7 @@ pub struct CargoMetadata {
     pub repository: String,
 }
 
-/// Updates Cargo.toml content with required metadata for installers.
+/// Updates `Cargo.toml` content with required metadata for installers.
 ///
 /// # Errors
 /// Returns error if TOML parsing fails or required structures cannot be created.
@@ -60,7 +60,7 @@ pub fn update_cargo_toml_with_metadata(content: &str) -> Result<String> {
     Ok(cargo_toml.to_string())
 }
 
-/// Injects specific fields into the [package] section of Cargo.toml.
+/// Injects specific fields into the `[package]` section of `Cargo.toml`.
 ///
 /// # Errors
 /// Returns error if TOML parsing fails.
@@ -95,6 +95,39 @@ pub fn inject_cargo_fields(
 
     if let Some(r) = repository {
         package["repository"] = value(r);
+    }
+
+    Ok(cargo_toml.to_string())
+}
+
+/// Prepares `Cargo.toml` for library export and optionally `cbindgen`.
+///
+/// # Errors
+/// Returns error if TOML parsing fails.
+pub fn prepare_cargo_lib(
+    content: &str,
+    crate_types: Vec<String>,
+    cbindgen: bool,
+) -> Result<String> {
+    let mut cargo_toml = content.parse::<DocumentMut>()?;
+
+    ensure_table_exists(&mut cargo_toml, "lib")?;
+    let lib = cargo_toml["lib"]
+        .as_table_mut()
+        .ok_or_else(|| RefineryError::Config("'lib' is not a table".into()))?;
+
+    let mut types = Array::new();
+    for t in crate_types {
+        types.push(t);
+    }
+    lib["crate-type"] = value(types);
+
+    if cbindgen {
+        ensure_table_exists(&mut cargo_toml, "build-dependencies")?;
+        let build_deps = cargo_toml["build-dependencies"]
+            .as_table_mut()
+            .ok_or_else(|| RefineryError::Config("'build-dependencies' is not a table".into()))?;
+        build_deps["cbindgen"] = value("0.27");
     }
 
     Ok(cargo_toml.to_string())
@@ -192,6 +225,19 @@ name = "test"
         assert!(updated.contains(r#"license = "MIT""#));
         assert!(updated.contains(r#"description = "Desc""#));
         assert!(updated.contains(r#"repository = "https://github.com/test/test""#));
+        Ok(())
+    }
+
+    #[test]
+    fn test_prepare_cargo_lib() -> Result<()> {
+        let content = r#"[package]
+name = "test"
+"#;
+        let updated = prepare_cargo_lib(content, vec!["cdylib".into()], true)?;
+        assert!(updated.contains("[lib]"));
+        assert!(updated.contains(r#"crate-type = ["cdylib"]"#));
+        assert!(updated.contains("[build-dependencies]"));
+        assert!(updated.contains(r#"cbindgen = "0.27""#));
         Ok(())
     }
 }

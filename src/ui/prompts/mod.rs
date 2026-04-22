@@ -1,6 +1,7 @@
 pub mod binaries;
 pub mod common;
 pub mod install;
+pub mod installers;
 pub mod libraries;
 pub mod targets;
 
