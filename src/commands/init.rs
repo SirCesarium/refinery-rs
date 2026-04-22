@@ -58,11 +58,6 @@ pub fn run(args: &InitArgs) -> Result<()> {
 }
 
 fn handle_save(config: &RefineryConfig, path: &Path) -> Result<bool> {
-    if config.targets.is_empty() {
-        println!();
-        warn("No targets configured. Please configure at least one target.");
-        return Ok(false);
-    }
     config.validate()?;
     let toml = config.to_toml()?;
     println!("\n--- Preview ---");
@@ -73,7 +68,8 @@ fn handle_save(config: &RefineryConfig, path: &Path) -> Result<bool> {
         println!();
         success("Project initialized successfully.");
 
-        if prompt_confirm("Generate GitHub Actions workflow?", true)? {
+        if !config.targets.is_empty() && prompt_confirm("Generate GitHub Actions workflow?", true)?
+        {
             generate_workflow(config)?;
         }
         return Ok(true);
