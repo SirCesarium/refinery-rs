@@ -106,6 +106,7 @@ pub fn inject_cargo_fields(
 /// Returns error if TOML parsing fails.
 pub fn prepare_cargo_lib(
     content: &str,
+    name: &str,
     crate_types: Vec<String>,
     cbindgen: bool,
 ) -> Result<String> {
@@ -115,6 +116,9 @@ pub fn prepare_cargo_lib(
     let lib = cargo_toml["lib"]
         .as_table_mut()
         .ok_or_else(|| RefineryError::Config("'lib' is not a table".into()))?;
+
+    // Ensure explicit name to avoid MSVC PDB collisions
+    lib["name"] = value(name.replace('-', "_"));
 
     let mut types = Array::new();
     for t in crate_types {
@@ -233,8 +237,9 @@ name = "test"
         let content = r#"[package]
 name = "test"
 "#;
-        let updated = prepare_cargo_lib(content, vec!["cdylib".into()], true)?;
+        let updated = prepare_cargo_lib(content, "my-lib", vec!["cdylib".into()], true)?;
         assert!(updated.contains("[lib]"));
+        assert!(updated.contains(r#"name = "my_lib""#));
         assert!(updated.contains(r#"crate-type = ["cdylib"]"#));
         assert!(updated.contains("[build-dependencies]"));
         assert!(updated.contains(r#"cbindgen = "0.27""#));

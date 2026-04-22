@@ -162,7 +162,7 @@ fn setup_lib(config: &mut RefineryConfig) -> Result<()> {
             })
             .collect();
 
-        let updated_cargo = prepare_cargo_lib(&cargo_content, crate_types, lib.headers)?;
+        let updated_cargo = prepare_cargo_lib(&cargo_content, &lib.name, crate_types, lib.headers)?;
         fs::write("Cargo.toml", updated_cargo)?;
         success("Cargo.toml configured for library export.");
 
