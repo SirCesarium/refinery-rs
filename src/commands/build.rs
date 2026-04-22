@@ -188,6 +188,11 @@ fn run_cargo_deb(info: &TargetInfo) -> Result<()> {
     let _ = cmd.arg("--no-build");
     let _ = cmd.arg("--no-strip");
 
+    // Fix for musl: avoid shared library dependency checks as binaries are static
+    if info.triple.contains("musl") {
+        let _ = cmd.arg("--no-shlibs");
+    }
+
     let status = cmd.status().map_err(RefineryError::Io)?;
     if !status.success() {
         return Err(RefineryError::Generic(anyhow::anyhow!(
@@ -262,8 +267,12 @@ fn run_archive_zip(config: &RefineryConfig, info: &TargetInfo, release: bool) ->
 
     for bin in &config.binaries {
         if info.matrix.artifacts.contains(&bin.name) {
-            let bin_path = format!("{}.exe", bin.name);
-            let _ = cmd.arg(bin_path);
+            let name = if info.triple.contains("windows") {
+                format!("{}.exe", bin.name)
+            } else {
+                bin.name.clone()
+            };
+            let _ = cmd.arg(name);
         }
     }
 
