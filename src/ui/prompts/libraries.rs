@@ -79,21 +79,29 @@ fn add_library_flow(config: &mut RefineryConfig) -> Result<bool> {
 /// Returns error if prompt fails.
 pub fn edit_library_fields(libs: &mut Vec<Library>, idx: usize) -> Result<bool> {
     loop {
-        let lib = libs
-            .get(idx)
-            .ok_or_else(|| anyhow!("Library index out of bounds"))?;
-        let headers = if lib.headers { "Yes" } else { "No" };
+        let (name, path, types_len, has_headers) = {
+            let lib = libs
+                .get(idx)
+                .ok_or_else(|| anyhow!("Index out of bounds"))?;
+            (
+                lib.name.clone(),
+                lib.path.clone(),
+                lib.types.len(),
+                lib.headers,
+            )
+        };
 
+        let headers_label = if has_headers { "Yes" } else { "No" };
         let remove_label = "Remove Library".red().to_string();
         let done_label = "Done".cyan().to_string();
 
         let field = Select::new(
-            &format!("Editing Library: {}", lib.name.yellow()),
+            &format!("Editing Library: {}", name.yellow()),
             vec![
-                format!("Name: {}", lib.name),
-                format!("Path: {}", lib.path),
-                format!("Types: {:?}", lib.types),
-                format!("Headers: {}", headers),
+                format!("Name: {name}"),
+                format!("Path: {path}"),
+                format!("Types: ({types_len} selected)"),
+                format!("Headers: {headers_label}"),
                 remove_label.clone(),
                 done_label.clone(),
             ],
@@ -102,15 +110,16 @@ pub fn edit_library_fields(libs: &mut Vec<Library>, idx: usize) -> Result<bool> 
         .prompt()?;
 
         if field == done_label {
-            let lib_final = &libs[idx];
-            if lib_final.types.is_empty() && !lib_final.headers {
-                warn("Library has no types or headers. Removing artifact.");
-                libs.remove(idx);
+            let lib = &libs[idx];
+            if lib.types.is_empty() && !lib.headers {
+                warn("Library must have at least one type or headers. Fix before finishing.");
+                continue;
             }
             return Ok(true);
         }
+
         if field == remove_label {
-            if prompt_confirm(&format!("Delete {}?", lib.name), false)? {
+            if prompt_confirm(&format!("Delete {name}?"), false)? {
                 libs.remove(idx);
                 return Ok(true);
             }
@@ -119,7 +128,7 @@ pub fn edit_library_fields(libs: &mut Vec<Library>, idx: usize) -> Result<bool> 
 
         let lib_mut = libs
             .get_mut(idx)
-            .ok_or_else(|| anyhow!("Failed to get mutable library"))?;
+            .ok_or_else(|| anyhow!("Mutable access failed"))?;
         match field.as_str() {
             _ if field.starts_with("Name:") => {
                 let new = prompt!("New name:", &format!("Current: {}", lib_mut.name))?;
