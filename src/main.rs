@@ -7,7 +7,6 @@
     clippy::pedantic,
     clippy::absolute_paths
 )]
-#![allow(missing_docs, clippy::missing_errors_doc)]
 
 mod commands;
 

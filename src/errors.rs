@@ -16,15 +16,20 @@ pub enum RefineryError {
     #[error("Failed to perform IO operation: {0}")]
     Io(#[from] StdIoError),
 
-    #[error("Failed to process interactive prompt: {0}")]
-    Prompt(#[from] inquire::InquireError),
-
     #[error("Workflow file '{0}' already exists.")]
     FileExists(String),
 
     #[error("Failed to process YAML configuration: {0}")]
     Yaml(#[from] serde_yaml::Error),
 
+    #[error("Failed to process TOML configuration: {0}")]
+    Toml(#[from] toml_edit::TomlError),
+
+    #[cfg(feature = "pretty-cli")]
+    #[error("Failed to process interactive prompt: {0}")]
+    Prompt(#[from] inquire::InquireError),
+
+    #[cfg(feature = "ci")]
     #[error("Network operation failed: {0}")]
     Network(#[from] reqwest::Error),
 }

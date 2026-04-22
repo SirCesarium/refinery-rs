@@ -31,7 +31,7 @@ macro_rules! spinner {
         }
         #[cfg(not(feature = "pretty-cli"))]
         {
-            println!("... {msg}");
+            println!("... {}", $msg);
             $crate::ui::ProgressBarMock
         }
     }};
@@ -66,7 +66,7 @@ macro_rules! progress {
         }
         #[cfg(not(feature = "pretty-cli"))]
         {
-            println!("[*] {msg}");
+            println!("[*] {}", $msg);
             $crate::ui::ProgressBarMock
         }
     }};
@@ -91,10 +91,17 @@ macro_rules! log_step {
 #[macro_export]
 macro_rules! impl_inquire_text {
     ($msg:expr) => {{
-        use owo_colors::OwoColorize;
-        $msg.color($crate::ui::BRAND_ORANGE_XTERM)
-            .bold()
-            .to_string()
+        #[cfg(feature = "pretty-cli")]
+        {
+            use owo_colors::OwoColorize;
+            $msg.color($crate::ui::BRAND_ORANGE_XTERM)
+                .bold()
+                .to_string()
+        }
+        #[cfg(not(feature = "pretty-cli"))]
+        {
+            $msg.to_string()
+        }
     }};
 }
 
@@ -111,7 +118,8 @@ macro_rules! prompt_multi {
         }
         #[cfg(not(feature = "pretty-cli"))]
         {
-            Err(anyhow::anyhow!("Multi-prompt offline"))
+            let _ = $options;
+            Err(anyhow::anyhow!("Multi-prompt offline: {}", $msg))
         }
     }};
 }
@@ -130,8 +138,8 @@ macro_rules! prompt {
         }
         #[cfg(not(feature = "pretty-cli"))]
         {
-            println!("{} (Help: {})", $msg, $help);
-            Err(anyhow::anyhow!("Prompt offline"))
+            let _ = $help;
+            Err(anyhow::anyhow!("Prompt offline: {}", $msg))
         }
     }};
 

@@ -1,3 +1,5 @@
+#![cfg(feature = "semver")]
+
 use anyhow::{Context, Result, anyhow};
 use semver::{Prerelease, Version};
 use std::fs;

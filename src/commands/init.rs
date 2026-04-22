@@ -1,11 +1,13 @@
 use anyhow::Result;
 use clap::Args;
 use refinery_rs::core::schema::{RefineryConfig, Targets};
+use refinery_rs::core::workflow::Workflow;
 use refinery_rs::ui::prompts::{
     configure_binaries, configure_libraries, configure_targets, select_init_action,
 };
 use refinery_rs::ui::{print_banner, print_highlighted_toml, prompt_confirm, success, warn};
-use std::path::Path;
+use std::fs;
+use std::path::{Path, PathBuf};
 
 #[derive(Args)]
 pub struct InitArgs {
@@ -15,7 +17,7 @@ pub struct InitArgs {
 
 pub fn run(args: &InitArgs) -> Result<()> {
     print_banner();
-    let config_path = Path::new("refinery.toml");
+    let config_path = PathBuf::from("refinery.toml");
     if config_path.exists() && !args.force {
         anyhow::bail!(
             "Configuration file 'refinery.toml' already exists. Use --force to overwrite."
@@ -44,20 +46,7 @@ pub fn run(args: &InitArgs) -> Result<()> {
                 }
             }
             "Review & Save" => {
-                if config.targets.is_empty() {
-                    println!();
-                    warn("No targets configured. Please configure at least one target.");
-                    continue;
-                }
-                config.validate()?;
-                let toml = config.to_toml()?;
-                println!("\n--- Preview ---");
-                print_highlighted_toml(&toml);
-                println!();
-                if prompt_confirm("Save to refinery.toml?", true)? {
-                    config.save(config_path)?;
-                    println!();
-                    success("Project initialized successfully.");
+                if handle_save(&config, &config_path)? {
                     break;
                 }
             }
@@ -65,5 +54,41 @@ pub fn run(args: &InitArgs) -> Result<()> {
         }
     }
 
+    Ok(())
+}
+
+fn handle_save(config: &RefineryConfig, path: &Path) -> Result<bool> {
+    if config.targets.is_empty() {
+        println!();
+        warn("No targets configured. Please configure at least one target.");
+        return Ok(false);
+    }
+    config.validate()?;
+    let toml = config.to_toml()?;
+    println!("\n--- Preview ---");
+    print_highlighted_toml(&toml);
+    println!();
+    if prompt_confirm("Save to refinery.toml?", true)? {
+        config.save(path)?;
+        println!();
+        success("Project initialized successfully.");
+
+        if prompt_confirm("Generate GitHub Actions workflow?", true)? {
+            generate_workflow(config)?;
+        }
+        return Ok(true);
+    }
+    Ok(false)
+}
+
+fn generate_workflow(config: &RefineryConfig) -> Result<()> {
+    let workflow = Workflow::build_workflow(config)?;
+    let yaml = workflow.to_yaml()?;
+    let workflow_path = Path::new(".github/workflows/refinery.yml");
+    if let Some(parent) = workflow_path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(workflow_path, yaml)?;
+    success("GitHub Actions workflow generated at .github/workflows/refinery.yml");
     Ok(())
 }

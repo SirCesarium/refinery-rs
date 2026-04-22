@@ -182,16 +182,16 @@ pub fn prompt_confirm(msg: &str, default: bool) -> Result<bool> {
 }
 
 pub fn print_banner() {
-    let banner = r"
+    #[cfg(feature = "pretty-cli")]
+    {
+        use owo_colors::OwoColorize;
+        let banner = r"
               _____                      
    ________  / __(_)___  ___  _______  __
   / ___/ _ \/ /_/ / __ \/ _ \/ ___/ / / /
  / /  /  __/ __/ / / / /  __/ /  / /_/ / 
 /_/   \___/_/ /_/_/ /_/\___/_/   \__, /  
                                 /____/   ";
-    #[cfg(feature = "pretty-cli")]
-    {
-        use owo_colors::OwoColorize;
         println!(
             "{}\n\n{}",
             banner.color(BRAND_ORANGE_XTERM),

@@ -1,8 +1,10 @@
 pub mod artifacts;
+pub mod metadata;
 pub mod targets;
 pub mod types;
 
 pub use artifacts::*;
+pub use metadata::*;
 pub use targets::*;
 pub use types::*;
 
