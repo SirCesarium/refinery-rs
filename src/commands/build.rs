@@ -1,5 +1,7 @@
 use clap::Args;
-use refinery_rs::core::schema::{LibC, OS, RefineryConfig, TargetMatrix};
+use refinery_rs::core::schema::{
+    LibC, LibType, OS, RefineryConfig, TargetMatrix, prepare_cargo_lib,
+};
 use refinery_rs::errors::{RefineryError, Result};
 use std::fs;
 use std::path::Path;
@@ -26,6 +28,9 @@ pub struct TargetInfo {
 pub fn run(args: &BuildArgs) -> anyhow::Result<()> {
     let config = RefineryConfig::load("refinery.toml")?;
 
+    // Auto-sync Cargo.toml metadata to avoid collisions and ensure environment is ready
+    sync_project_metadata(&config)?;
+
     if args.headers_only {
         return generate_headers(&config);
     }
@@ -42,6 +47,29 @@ pub fn run(args: &BuildArgs) -> anyhow::Result<()> {
         for info in targets {
             build_target(&config, &info, args.release)?;
         }
+    }
+
+    Ok(())
+}
+
+fn sync_project_metadata(config: &RefineryConfig) -> anyhow::Result<()> {
+    let cargo_content = fs::read_to_string("Cargo.toml")?;
+    let mut current_toml = cargo_content;
+
+    for lib in &config.libraries {
+        let crate_types: Vec<String> = lib
+            .types
+            .iter()
+            .map(|t| match t {
+                LibType::Dynamic => "cdylib".to_string(),
+                LibType::Static => "staticlib".to_string(),
+            })
+            .collect();
+        current_toml = prepare_cargo_lib(&current_toml, &lib.name, crate_types, lib.headers)?;
+    }
+
+    if current_toml != fs::read_to_string("Cargo.toml")? {
+        fs::write("Cargo.toml", current_toml)?;
     }
 
     Ok(())

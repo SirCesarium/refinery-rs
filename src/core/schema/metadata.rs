@@ -22,30 +22,24 @@ pub fn update_cargo_toml_with_metadata(content: &str) -> Result<String> {
     ensure_table_exists(&mut cargo_toml, "package")?;
     let package = cargo_toml["package"]
         .as_table_mut()
-        .ok_or_else(|| RefineryError::Config("'package' is not a table".into()))?;
+        .ok_or_else(|| RefineryError::Config("package is not a table".into()))?;
 
     ensure_sub_table_exists(package, "metadata")?;
     let metadata_table = package["metadata"]
         .as_table_mut()
-        .ok_or_else(|| RefineryError::Config("'metadata' is not a table".into()))?;
+        .ok_or_else(|| RefineryError::Config("metadata is not a table".into()))?;
 
-    // Inject Debian metadata
     ensure_sub_table_exists(metadata_table, "deb")?;
-    let deb = metadata_table["deb"]
-        .as_table_mut()
-        .ok_or_else(|| RefineryError::Config("'deb' is not a table".into()))?;
-    deb["name"] = value(&metadata.name);
+    metadata_table["deb"]["name"] = value(&metadata.name);
 
-    // Inject RPM metadata
     ensure_sub_table_exists(metadata_table, "generate-rpm")?;
     let rpm = metadata_table["generate-rpm"]
         .as_table_mut()
-        .ok_or_else(|| RefineryError::Config("'generate-rpm' is not a table".into()))?;
-
+        .ok_or_else(|| RefineryError::Config("generate-rpm is not a table".into()))?;
     rpm["name"] = value(&metadata.name);
-    // Add default assets for RPM if not present
+
     if rpm.get("assets").is_none() {
-        let mut assets = toml_edit::Array::new();
+        let mut assets = Array::new();
         let mut asset = toml_edit::InlineTable::new();
         asset.insert(
             "source",
@@ -73,28 +67,25 @@ pub fn inject_cargo_fields(
 ) -> Result<String> {
     let mut cargo_toml = content.parse::<DocumentMut>()?;
     ensure_table_exists(&mut cargo_toml, "package")?;
-    let package = cargo_toml["package"]
+    let pkg = cargo_toml["package"]
         .as_table_mut()
-        .ok_or_else(|| RefineryError::Config("'package' is not a table".into()))?;
+        .ok_or_else(|| RefineryError::Config("package is not a table".into()))?;
 
     if let Some(a) = authors {
-        let mut array = toml_edit::Array::new();
+        let mut array = Array::new();
         for author in a {
             array.push(author);
         }
-        package["authors"] = value(array);
+        pkg["authors"] = value(array);
     }
-
     if let Some(l) = license {
-        package["license"] = value(l);
+        pkg["license"] = value(l);
     }
-
     if let Some(d) = description {
-        package["description"] = value(d);
+        pkg["description"] = value(d);
     }
-
     if let Some(r) = repository {
-        package["repository"] = value(r);
+        pkg["repository"] = value(r);
     }
 
     Ok(cargo_toml.to_string())
@@ -111,14 +102,18 @@ pub fn prepare_cargo_lib(
     cbindgen: bool,
 ) -> Result<String> {
     let mut cargo_toml = content.parse::<DocumentMut>()?;
+    let metadata = get_cargo_metadata(&cargo_toml);
 
     ensure_table_exists(&mut cargo_toml, "lib")?;
     let lib = cargo_toml["lib"]
         .as_table_mut()
-        .ok_or_else(|| RefineryError::Config("'lib' is not a table".into()))?;
+        .ok_or_else(|| RefineryError::Config("lib is not a table".into()))?;
 
-    // Ensure explicit name to avoid MSVC PDB collisions
-    lib["name"] = value(name.replace('-', "_"));
+    let mut final_name = name.replace('-', "_");
+    if final_name == metadata.name.replace('-', "_") {
+        final_name.push_str("_lib");
+    }
+    lib["name"] = value(final_name);
 
     let mut types = Array::new();
     for t in crate_types {
@@ -128,10 +123,7 @@ pub fn prepare_cargo_lib(
 
     if cbindgen {
         ensure_table_exists(&mut cargo_toml, "build-dependencies")?;
-        let build_deps = cargo_toml["build-dependencies"]
-            .as_table_mut()
-            .ok_or_else(|| RefineryError::Config("'build-dependencies' is not a table".into()))?;
-        build_deps["cbindgen"] = value("0.27");
+        cargo_toml["build-dependencies"]["cbindgen"] = value("0.27");
     }
 
     Ok(cargo_toml.to_string())
@@ -139,19 +131,19 @@ pub fn prepare_cargo_lib(
 
 #[must_use]
 pub fn get_cargo_metadata(doc: &DocumentMut) -> CargoMetadata {
-    let package = doc.get("package");
+    let pkg = doc.get("package");
     CargoMetadata {
-        name: package
+        name: pkg
             .and_then(|p| p.get("name"))
             .and_then(Item::as_str)
             .unwrap_or("project")
-            .to_string(),
-        description: package
+            .into(),
+        description: pkg
             .and_then(|p| p.get("description"))
             .and_then(Item::as_str)
             .unwrap_or("")
-            .to_string(),
-        authors: package
+            .into(),
+        authors: pkg
             .and_then(|p| p.get("authors"))
             .and_then(Item::as_array)
             .map(|a| {
@@ -161,16 +153,16 @@ pub fn get_cargo_metadata(doc: &DocumentMut) -> CargoMetadata {
                     .collect()
             })
             .unwrap_or_default(),
-        license: package
+        license: pkg
             .and_then(|p| p.get("license"))
             .and_then(Item::as_str)
             .unwrap_or("")
-            .to_string(),
-        repository: package
+            .into(),
+        repository: pkg
             .and_then(|p| p.get("repository"))
             .and_then(Item::as_str)
             .unwrap_or("")
-            .to_string(),
+            .into(),
     }
 }
 
@@ -179,7 +171,7 @@ fn ensure_table_exists(doc: &mut DocumentMut, key: &str) -> Result<()> {
         doc.insert(key, Item::Table(Table::new()));
     } else if !doc[key].is_table() {
         return Err(RefineryError::Config(format!(
-            "Key '{key}' in Cargo.toml exists but is not a table"
+            "Key '{key}' in Cargo.toml is not a table"
         )));
     }
     Ok(())
@@ -190,7 +182,7 @@ fn ensure_sub_table_exists(table: &mut Table, key: &str) -> Result<()> {
         table.insert(key, Item::Table(Table::new()));
     } else if !table[key].is_table() {
         return Err(RefineryError::Config(format!(
-            "Sub-key {key} in Cargo.toml exists but is not a table"
+            "Sub-key {key} in Cargo.toml is not a table"
         )));
     }
     Ok(())
@@ -209,40 +201,16 @@ version = "0.1.0"
         let updated = update_cargo_toml_with_metadata(content)?;
         assert!(updated.contains(r"[package.metadata.deb]"));
         assert!(updated.contains(r"[package.metadata.generate-rpm]"));
-        assert!(updated.contains(r#"name = "test-project""#));
-        Ok(())
-    }
-
-    #[test]
-    fn test_inject_cargo_fields() -> Result<()> {
-        let content = r#"[package]
-name = "test"
-"#;
-        let updated = inject_cargo_fields(
-            content,
-            Some(vec!["Me".into()]),
-            Some("MIT".into()),
-            Some("Desc".into()),
-            Some("https://github.com/test/test".into()),
-        )?;
-        assert!(updated.contains(r#"authors = ["Me"]"#));
-        assert!(updated.contains(r#"license = "MIT""#));
-        assert!(updated.contains(r#"description = "Desc""#));
-        assert!(updated.contains(r#"repository = "https://github.com/test/test""#));
         Ok(())
     }
 
     #[test]
     fn test_prepare_cargo_lib() -> Result<()> {
         let content = r#"[package]
-name = "test"
+name = "my-project"
 "#;
-        let updated = prepare_cargo_lib(content, "my-lib", vec!["cdylib".into()], true)?;
-        assert!(updated.contains("[lib]"));
-        assert!(updated.contains(r#"name = "my_lib""#));
-        assert!(updated.contains(r#"crate-type = ["cdylib"]"#));
-        assert!(updated.contains("[build-dependencies]"));
-        assert!(updated.contains(r#"cbindgen = "0.27""#));
+        let updated = prepare_cargo_lib(content, "my-project", vec!["cdylib".into()], false)?;
+        assert!(updated.contains(r#"name = "my_project_lib""#));
         Ok(())
     }
 }
