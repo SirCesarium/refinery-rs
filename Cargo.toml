@@ -10,11 +10,11 @@ repository = "https://github.com/SirCesarium/refinery-rs"
 [package.metadata]
 
 [package.metadata.deb]
-name = "refinery-rs"
+name = "refinery"
 
 [package.metadata.generate-rpm]
-name = "refinery-rs"
-assets = [{ source = "target/release/refinery-rs", dest = "/usr/bin/refinery-rs", mode = "755" }]
+name = "refinery"
+assets = [{ source = "target/release/refinery", dest = "/usr/bin/refinery", mode = "755" }]
 
 [dependencies]
 # Core
