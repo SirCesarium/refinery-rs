@@ -71,12 +71,10 @@ fn create_build_steps(config: &RefineryConfig) -> Vec<Step> {
     let mut steps = create_base_steps();
 
     for bin in &config.binaries {
-        let name = &bin.name;
-        steps.push(create_prepare_step(name));
+        steps.push(create_prepare_step(&bin.name));
     }
 
     steps.push(create_upload_step());
-
     steps
 }
 
@@ -119,32 +117,31 @@ fn create_upload_step() -> Step {
 
 fn create_base_steps() -> Vec<Step> {
     vec![
-        create_step("Checkout", Some(actions::CHECKOUT.into()), None, None),
+        create_simple_step("Checkout", Some(actions::CHECKOUT.into()), None),
         create_toolchain_step(),
-        create_step("Rust Cache", Some(actions::RUST_CACHE.into()), None, None),
+        create_simple_step("Rust Cache", Some(actions::RUST_CACHE.into()), None),
         create_linux_dep_step("i686-unknown-linux-gnu", "gcc-multilib libc6-dev-i386"),
         create_linux_dep_step("aarch64-unknown-linux-gnu", "gcc-aarch64-linux-gnu libc6-dev-arm64-cross"),
         create_linker_config_step(),
         create_packagers_step(),
-        create_step("Install Refinery", None, Some("cargo install --git https://github.com/SirCesarium/refinery-rs --no-default-features".into()), Some("bash".into())),
+        create_simple_step("Install Refinery", None, Some("cargo install --git https://github.com/SirCesarium/refinery-rs --no-default-features".into())),
         create_cross_step(),
-        create_step("Check Format", None, Some("cargo fmt --check".into()), Some("bash".into())),
-        create_step("Clippy", None, Some("cargo clippy -- -D warnings".into()), Some("bash".into())),
-        create_step("Build", None, Some("refinery build --target ${{ matrix.target }} --release".into()), Some("bash".into())),
+        create_simple_step("Check Format", None, Some("cargo fmt --check".into())),
+        create_simple_step("Clippy", None, Some("cargo clippy -- -D warnings".into())),
+        create_simple_step("Build", None, Some("refinery build --target ${{ matrix.target }} --release".into())),
     ]
 }
 
-fn create_step(
-    name: &str,
-    uses: Option<String>,
-    run: Option<String>,
-    shell: Option<String>,
-) -> Step {
+fn create_simple_step(name: &str, uses: Option<String>, run: Option<String>) -> Step {
     Step {
         name: Some(name.into()),
         uses,
+        shell: if run.is_some() {
+            Some("bash".into())
+        } else {
+            None
+        },
         run,
-        shell,
         ..Default::default()
     }
 }

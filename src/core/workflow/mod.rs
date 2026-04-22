@@ -149,6 +149,7 @@ impl Workflow {
                 with: Some({
                     let mut m = HashMap::new();
                     m.insert("path".into(), "artifacts".into());
+                    m.insert("merge-multiple".into(), "true".into());
                     m
                 }),
                 ..Default::default()
@@ -158,7 +159,7 @@ impl Workflow {
                 uses: Some(actions::SOFTPROPS_RELEASE.into()),
                 with: Some({
                     let mut m = HashMap::new();
-                    m.insert("files".into(), "artifacts/**/*".into());
+                    m.insert("files".into(), "artifacts/*".into());
                     m
                 }),
                 ..Default::default()
