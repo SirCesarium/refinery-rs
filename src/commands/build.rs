@@ -232,15 +232,10 @@ fn run_archive_tar(config: &RefineryConfig, info: &TargetInfo, release: bool) ->
 
     let mut args = vec!["-czf", &archive_name, "-C", &base_path];
 
-    // Add binaries
-    let mut binaries = Vec::new();
     for bin in &config.binaries {
         if info.matrix.artifacts.contains(&bin.name) {
-            binaries.push(bin.name.clone());
+            args.push(&bin.name);
         }
-    }
-    for b in &binaries {
-        args.push(b);
     }
 
     let status = Command::new("tar")
@@ -260,22 +255,22 @@ fn run_archive_tar(config: &RefineryConfig, info: &TargetInfo, release: bool) ->
 fn run_archive_zip(config: &RefineryConfig, info: &TargetInfo, release: bool) -> Result<()> {
     let profile = if release { "release" } else { "debug" };
     let base_path = format!("target/{}/{}", info.triple, profile);
-    let abs_archive = fs::canonicalize(Path::new("target"))
-        .unwrap_or_else(|_| "target".into())
-        .join(&info.triple)
-        .join(format!("{}.zip", info.triple));
+    let archive_name = format!("{}.zip", info.triple);
 
     let mut cmd = Command::new("zip");
-    let _ = cmd.arg("-j").arg(abs_archive);
+    let _ = cmd.arg("-j").arg(format!("../../{archive_name}"));
 
     for bin in &config.binaries {
         if info.matrix.artifacts.contains(&bin.name) {
-            let bin_path = format!("{}/{}.exe", base_path, bin.name);
+            let bin_path = format!("{}.exe", bin.name);
             let _ = cmd.arg(bin_path);
         }
     }
 
-    let status = cmd.status().map_err(RefineryError::Io)?;
+    let status = cmd
+        .current_dir(Path::new(&base_path))
+        .status()
+        .map_err(RefineryError::Io)?;
 
     if !status.success() {
         return Err(RefineryError::Generic(anyhow::anyhow!(
@@ -283,6 +278,12 @@ fn run_archive_zip(config: &RefineryConfig, info: &TargetInfo, release: bool) ->
             info.triple
         )));
     }
+
+    let _ = fs::rename(
+        format!("target/{archive_name}"),
+        format!("target/{}/{archive_name}", info.triple),
+    );
+
     Ok(())
 }
 
