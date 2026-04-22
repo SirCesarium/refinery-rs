@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::Args;
 use refinery_rs::core::schema::{LibType, RefineryConfig, prepare_cargo_lib};
-use refinery_rs::core::workflow::Workflow;
+use refinery_rs::core::workflow::{Workflow, actions};
 use refinery_rs::ui::prompts::{configure_libraries, install, installers};
 use refinery_rs::ui::{icons, prompt_confirm, success, warn};
 use refinery_rs::{log_step, prompt, prompt_multi};
@@ -83,7 +83,12 @@ fn setup_quality_gate() -> Result<()> {
     ];
 
     if checks.iter().any(|c| c.contains("Sweet")) {
-        steps.push("      - name: Sweet Analysis\n        run: curl -L https://github.com/SirCesarium/sweet/releases/latest/download/sweet-linux-x86_64 -o swt && chmod +x swt && ./swt".to_string());
+        steps.push(format!(
+            "      - name: Sweet Analysis\n        run: curl -L {}/releases/download/{}/{} -o swt && chmod +x swt && ./swt",
+            actions::SWEET_REPO,
+            actions::SWEET_DEFAULT_VERSION,
+            actions::SWEET_BINARY
+        ));
     }
 
     if checks.iter().any(|c| c.contains("Format")) {
