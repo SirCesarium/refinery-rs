@@ -267,24 +267,39 @@ impl<'a> BuildManager<'a> {
     }
 
     fn run_cargo_wix(info: &TargetInfo) -> Result<()> {
-        let cargo_content = fs::read_to_string("Cargo.toml").map_err(RefineryError::Io)?;
-        let cargo_toml = cargo_content
+        let original_toml = fs::read_to_string("Cargo.toml").map_err(RefineryError::Io)?;
+        let mut cargo_toml = original_toml
             .parse::<DocumentMut>()
             .map_err(RefineryError::Toml)?;
 
-        let version_str = cargo_toml["package"]["version"].as_str().unwrap_or("0.1.0");
+        let version_str = cargo_toml["package"]["version"]
+            .as_str()
+            .unwrap_or("0.1.0")
+            .to_string();
 
-        let mut cmd = Command::new("cargo");
-        cmd.arg("wix").arg("--target").arg(&info.triple);
+        // WiX only supports Numeric versions (Major.Minor.Build.Revision)
+        // Transform 1.0.0-rc.1 to 1.0.0.1
+        let modified = if version_str.contains("-rc.") {
+            let wix_version = version_str.replace("-rc.", ".");
+            cargo_toml["package"]["version"] = toml_edit::value(wix_version);
+            fs::write("Cargo.toml", cargo_toml.to_string()).map_err(RefineryError::Io)?;
+            true
+        } else {
+            false
+        };
 
-        // Handle pre-release for WiX (e.g., 1.0.0-rc.1 -> 1.0.0-1) as WiX has strict versioning rules
-        if version_str.contains("-rc.") {
-            let wix_version = version_str.replace("-rc.", "-");
-            cmd.arg("--package-version").arg(wix_version);
+        let status = Command::new("cargo")
+            .arg("wix")
+            .arg("--target")
+            .arg(&info.triple)
+            .status();
+
+        if modified {
+            let _ = fs::write("Cargo.toml", original_toml);
         }
 
-        let status = cmd.status().map_err(RefineryError::Io)?;
-        if !status.success() {
+        let s = status.map_err(RefineryError::Io)?;
+        if !s.success() {
             return Err(RefineryError::Generic(anyhow::anyhow!(
                 "Failed to generate .msi for {}",
                 info.triple
