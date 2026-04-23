@@ -26,7 +26,7 @@ impl Workflow {
             name: name.to_string(),
             on: WorkflowEvents {
                 push: Some(PushEvent {
-                    branches: Some(vec!["main".into()]),
+                    branches: None,
                     tags: Some(vec!["v*".into()]),
                 }),
                 ..Default::default()
