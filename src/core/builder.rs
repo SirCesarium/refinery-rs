@@ -267,12 +267,23 @@ impl<'a> BuildManager<'a> {
     }
 
     fn run_cargo_wix(info: &TargetInfo) -> Result<()> {
-        let status = Command::new("cargo")
-            .arg("wix")
-            .arg("--target")
-            .arg(&info.triple)
-            .status()
-            .map_err(RefineryError::Io)?;
+        let cargo_content = fs::read_to_string("Cargo.toml").map_err(RefineryError::Io)?;
+        let cargo_toml = cargo_content
+            .parse::<DocumentMut>()
+            .map_err(RefineryError::Toml)?;
+
+        let version_str = cargo_toml["package"]["version"].as_str().unwrap_or("0.1.0");
+
+        let mut cmd = Command::new("cargo");
+        cmd.arg("wix").arg("--target").arg(&info.triple);
+
+        // Handle pre-release for WiX (e.g., 1.0.0-rc.1 -> 1.0.0-1) as WiX has strict versioning rules
+        if version_str.contains("-rc.") {
+            let wix_version = version_str.replace("-rc.", "-");
+            cmd.arg("--package-version").arg(wix_version);
+        }
+
+        let status = cmd.status().map_err(RefineryError::Io)?;
         if !status.success() {
             return Err(RefineryError::Generic(anyhow::anyhow!(
                 "Failed to generate .msi for {}",
