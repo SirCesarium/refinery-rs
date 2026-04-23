@@ -162,7 +162,7 @@ fn create_release_job() -> Job {
         needs: Some(vec!["build".into()]),
         steps: vec![
             create_step("Checkout", Some(actions::CHECKOUT.into()), None, None),
-            create_download_step("artifacts", "artifacts"),
+            create_download_all_step("artifacts"),
             create_step(
                 "Publish Release",
                 Some(actions::SOFTPROPS_RELEASE.into()),
@@ -172,6 +172,18 @@ fn create_release_job() -> Job {
         ],
         ..Default::default()
     }
+}
+
+fn create_download_all_step(path: &str) -> Step {
+    let mut m = HashMap::new();
+    m.insert("path".into(), path.into());
+    m.insert("merge-multiple".into(), "true".into());
+    create_step(
+        "Download all artifacts",
+        Some(actions::DOWNLOAD_ARTIFACT.into()),
+        Some(m),
+        None,
+    )
 }
 
 fn create_step(

@@ -111,7 +111,6 @@ jobs:
       uses: actions/download-artifact@v8
       with:
         path: artifacts
-        name: artifacts
         merge-multiple: 'true'
     - name: Publish Release
       uses: softprops/action-gh-release@v3
