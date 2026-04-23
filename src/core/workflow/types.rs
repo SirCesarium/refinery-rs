@@ -17,6 +17,8 @@ pub struct WorkflowEvents {
     pub pull_request: Option<PullRequestEvent>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub release: Option<ReleaseEvent>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub workflow_dispatch: Option<serde_yaml::Value>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]

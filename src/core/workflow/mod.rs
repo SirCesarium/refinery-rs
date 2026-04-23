@@ -29,6 +29,7 @@ impl Workflow {
                     branches: None,
                     tags: Some(vec!["v*".into()]),
                 }),
+                workflow_dispatch: Some(serde_yaml::Value::Mapping(serde_yaml::Mapping::new())),
                 ..Default::default()
             },
             permissions: None,
@@ -106,6 +107,7 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
 jobs:
   check:
     name: Quality & Testing
