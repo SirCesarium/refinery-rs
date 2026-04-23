@@ -1,4 +1,6 @@
-use crate::core::schema::{LibType, Library, RefineryConfig, prepare_cargo_lib};
+use crate::core::schema::{
+    LibType, Library, RefineryConfig, prepare_cargo_bins, prepare_cargo_lib,
+};
 use crate::core::workflow::Workflow;
 use crate::errors::Result;
 use std::fs;
@@ -14,6 +16,10 @@ pub fn sync_metadata(config: &RefineryConfig) -> Result<()> {
     let cargo_content = fs::read_to_string(cargo_path)?;
     let mut current_toml = cargo_content.clone();
 
+    // Synchronize binaries
+    current_toml = prepare_cargo_bins(&current_toml, &config.binaries)?;
+
+    // Synchronize libraries
     for lib in &config.libraries {
         let crate_types: Vec<String> = lib
             .types

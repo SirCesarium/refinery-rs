@@ -1,4 +1,5 @@
 use clap::Args;
+use refinery_rs::core::project;
 use refinery_rs::core::schema::{CargoMetadata, RefineryConfig, get_cargo_metadata};
 use refinery_rs::core::workflow::Workflow;
 use refinery_rs::ui::{success, warn};
@@ -15,6 +16,7 @@ pub struct ForgeArgs {
 pub fn run(args: &ForgeArgs) -> anyhow::Result<()> {
     let config = RefineryConfig::load("refinery.toml")?;
 
+    project::sync_metadata(&config)?;
     validate_cargo_metadata(&config)?;
 
     let workflow = Workflow::primary_workflow(&config)?;

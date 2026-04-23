@@ -1,3 +1,4 @@
+use crate::core::schema::artifacts::Binary;
 use crate::errors::{RefineryError, Result};
 use toml_edit::{Array, DocumentMut, Item, Table, Value, value};
 
@@ -87,6 +88,33 @@ pub fn inject_cargo_fields(
     if let Some(r) = repository {
         pkg["repository"] = value(r);
     }
+
+    Ok(cargo_toml.to_string())
+}
+
+/// Prepares `Cargo.toml` with binary definitions.
+///
+/// # Errors
+/// Returns error if TOML parsing fails.
+pub fn prepare_cargo_bins(content: &str, bins: &[Binary]) -> Result<String> {
+    let mut cargo_toml = content.parse::<DocumentMut>()?;
+
+    // Remove existing bin sections
+    cargo_toml.remove("bin");
+
+    if bins.is_empty() {
+        return Ok(cargo_toml.to_string());
+    }
+
+    let mut bin_array = toml_edit::ArrayOfTables::new();
+    for bin in bins {
+        let mut table = Table::new();
+        table.insert("name", value(bin.name.clone()));
+        table.insert("path", value(bin.path.clone()));
+        bin_array.push(table);
+    }
+
+    cargo_toml.insert("bin", Item::ArrayOfTables(bin_array));
 
     Ok(cargo_toml.to_string())
 }

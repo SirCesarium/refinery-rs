@@ -66,3 +66,7 @@ ci = ["dep:reqwest"]
 [[bin]]
 name = "refinery"
 path = "src/main.rs"
+
+[[bin]]
+name = "refinery-build"
+path = "src/main.rs"
